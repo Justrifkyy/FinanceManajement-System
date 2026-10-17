@@ -1,0 +1,1454 @@
+{
+  "$schema_note": "Dokumen spesifikasi produk untuk AI coder. Baca seluruh file sebelum menulis kode. Jika ada konflik antara kode dan dokumen ini, dokumen ini adalah sumber kebenaran, kecuali bagian 'open_decisions' yang belum diputuskan.",
+  "spec_version": "1.3.0",
+  "last_updated": "2026-10-17",
+  "changelog": [
+    "1.3.0: Ditambah bagian 'design' (neo-brutalism) dan halaman usulan dari desain. Detail visual ada di docs/DESIGN_SYSTEM.md.",
+    "1.2.0: Firebase dihapus. Database = Drift (SQLite lokal). Data aman jika HP hilang lewat Backup & Restore ke Google Drive (appDataFolder). Skema Firestore diganti skema SQL. Fitur F-19 (Backup & Restore) dan F-20 (Ekspor manual) masuk v1.",
+    "1.1.0: Stack diganti dari React Native/Expo ke Flutter (Dart). Fokus Android.",
+    "1.0.0: Versi awal."
+  ],
+  "decisions_log": [
+    {
+      "id": "DL-01",
+      "decision": "Framework Flutter (Dart), fokus Android dulu."
+    },
+    {
+      "id": "DL-02",
+      "decision": "Database lokal Drift (SQLite). Firebase TIDAK dipakai."
+    },
+    {
+      "id": "DL-03",
+      "decision": "Data harus selamat jika HP hilang: backup otomatis ke Google Drive pengguna (folder appDataFolder tersembunyi) + restore di HP baru."
+    },
+    {
+      "id": "DL-04",
+      "decision": "Investasi/aset memakai input nilai manual (tanpa API harga), masuk v1.5."
+    },
+    {
+      "id": "DL-05",
+      "decision": "Satu perangkat aktif pada satu waktu. Sinkron real-time multi-perangkat di luar cakupan."
+    },
+    {
+      "id": "DL-06",
+      "decision": "Gaya visual neo-brutalism (border tebal, bayangan keras, warna datar jenuh, radius 0). Mode terang saja di v1; mode gelap ditunda. Font dibundel (Space Grotesk + Space Mono)."
+    }
+  ],
+  "meta": {
+    "app_name": "Runway Finance",
+    "app_name_note": "Nama sementara, bisa diganti. Jangan hardcode nama di banyak tempat, simpan di satu konstanta APP_NAME.",
+    "language_ui": "id-ID",
+    "currency": "IDR",
+    "timezone": "Asia/Makassar",
+    "platform": [
+      "Android"
+    ],
+    "one_liner": "Aplikasi keuangan pribadi untuk orang dengan pendapatan tidak tetap (freelancer/project-based) yang menjawab satu pertanyaan: berapa hari saya bisa bertahan hidup dengan uang yang ada sekarang?",
+    "target_user": "Freelancer / web developer dengan pendapatan acak (contoh: project website dibayar Rp 3.000.000 sekali cair, lalu sepi berminggu-minggu).",
+    "mindset": "Survival First, Growth Second (bertahan dulu, baru berkembang).",
+    "main_enemies": [
+      "Impulse buying (jajan dadakan) saat merasa banyak uang",
+      "Panik saat project sepi"
+    ],
+    "main_goal": "Runway selalu di atas 30 hari.",
+    "design_principle": "Aplikasi TIDAK menanyakan gaji bulanan. Pengguna mengelola uang seperti manajer startup: alokasikan setiap rupiah ke pos tertentu (sistem amplop / zero-based).",
+    "platform_note": "Fokus Android dulu. iOS ditunda, tapi pakai Flutter agar iOS bisa menyusul tanpa tulis ulang. Jangan menulis kode khusus Android kecuali perlu (notifikasi, izin).",
+    "data_safety_goal": "Jika HP hilang/rusak, pengguna bisa memulihkan seluruh data di HP baru cukup dengan login Google dan menekan 'Pulihkan'. Kehilangan data maksimal sebatas perubahan setelah backup terakhir."
+  },
+  "tech_stack": {
+    "framework": "Flutter (Dart, null safety)",
+    "language": "Dart",
+    "target_platform": "Android. iOS ditunda.",
+    "database": "Drift (SQLite lokal) sebagai database utama dan satu-satunya sumber kebenaran data di perangkat.",
+    "database_packages": "drift, drift_flutter; dev: drift_dev, build_runner. Ikuti dokumentasi Drift versi terbaru untuk paket pendukung SQLite.",
+    "database_notes": [
+      "Gunakan Drift .watch() (stream) + Riverpod StreamProvider agar UI otomatis ter-update saat data berubah.",
+      "Semua operasi yang melibatkan lebih dari satu penulisan HARUS dalam satu db.transaction().",
+      "Aktifkan foreign keys (PRAGMA foreign_keys = ON) dan gunakan CHECK constraint untuk amount > 0.",
+      "Skema berversi (schemaVersion) dengan MigrationStrategy. Setiap perubahan skema wajib punya migrasi dan test migrasi.",
+      "Test repository memakai database in-memory (NativeDatabase.memory())."
+    ],
+    "backend": "TIDAK ADA backend/server. Tidak ada Firebase. Semua logika di perangkat.",
+    "backup": {
+      "target": "Google Drive pengguna, folder tersembunyi appDataFolder, scope OAuth hanya 'drive.appdata'.",
+      "packages": "google_sign_in, googleapis (Drive v3), http, path_provider, share_plus (ekspor manual), uuid. Ikuti README google_sign_in versi terpasang karena API-nya berubah antar versi mayor (di Android versi baru mungkin butuh Web client ID / serverClientId).",
+      "snapshot_method": "Buat salinan konsisten database dengan perintah SQLite 'VACUUM INTO <path>' (aman saat database terbuka), lalu kompres gzip (dart:io GZipCodec), lalu unggah.",
+      "manual_setup_required": "Pengguna harus menyiapkan Google Cloud project sekali (lihat docs/BACKUP_SETUP.md). AI agent tidak bisa melakukan ini."
+    },
+    "state_management": "Riverpod (flutter_riverpod)",
+    "routing": "go_router dengan ShellRoute untuk bottom tabs",
+    "notifications": "flutter_local_notifications + timezone + flutter_timezone (notifikasi LOKAL terjadwal, tidak butuh internet)",
+    "ids": "uuid v4 (TEXT) sebagai primary key semua tabel, agar aman untuk restore dan sinkron di masa depan.",
+    "formatting": "intl untuk format Rupiah dan tanggal (locale id_ID)",
+    "charts": "fl_chart (hanya v1.5)",
+    "celebration_animation": "confetti atau lottie (pilih salah satu yang ringan)",
+    "testing": "flutter_test; database in-memory untuk repository; fungsi domain diuji tanpa database.",
+    "lint": "flutter_lints. Jalankan 'flutter analyze' sebelum menyatakan tugas selesai.",
+    "updates": "Update manual lewat build APK/AAB. Flutter tidak punya OTA bawaan. Opsi pihak ketiga: Shorebird (lihat OD-06).",
+    "external_apis": "Hanya Google Drive API (untuk backup). Tidak ada API harga aset.",
+    "dependency_rule": "Tambahkan paket dengan 'flutter pub add <nama>' agar mendapat versi terbaru yang kompatibel. Jangan menulis nomor versi dari ingatan.",
+    "architecture_rules": [
+      "Arsitektur berlapis: features (UI) -> providers -> repositories -> database (Drift DAOs). Rumus bisnis di domain/.",
+      "Lapisan domain/ HARUS Dart murni: tidak boleh import flutter, drift, google_sign_in, atau riverpod. Hanya menerima data biasa dan mengembalikan hasil.",
+      "Widget tidak boleh berisi logika bisnis atau query. Widget hanya membaca provider.",
+      "Semua akses database lewat repository (yang memakai DAO). Widget tidak menyentuh Drift langsung.",
+      "Saldo TIDAK disimpan sebagai kolom tersendiri. Saldo selalu diturunkan dari tabel transactions (lihat data_model.key_queries).",
+      "Backup berjalan di service terpisah dan TIDAK boleh memblokir UI atau mengganggu pencatatan transaksi."
+    ],
+    "android_specifics": [
+      "Android 13+ butuh izin runtime POST_NOTIFICATIONS.",
+      "Notifikasi terjadwal tepat waktu butuh pengaturan exact alarm; jika izin tidak ada, gunakan mode inexact dan jangan crash.",
+      "Notifikasi terjadwal hilang setelah reboot kecuali receiver boot diatur. Selain itu, jadwalkan ulang semua notifikasi setiap aplikasi dibuka dan setelah restore.",
+      "flutter_local_notifications membutuhkan core library desugaring di build.gradle; ikuti dokumentasi paketnya.",
+      "Beberapa vendor HP (Xiaomi, Oppo, dll) mematikan aplikasi di background dan bisa menunda notifikasi. Catat sebagai keterbatasan, bukan bug.",
+      "Google Sign-In di Android butuh OAuth client dengan package name + SHA-1. SHA-1 debug dan release berbeda: daftarkan keduanya. SIMPAN keystore release dengan aman; kehilangan keystore berarti tanda tangan aplikasi berubah.",
+      "Uji Restore dari build RELEASE sebelum mengandalkan backup untuk data nyata."
+    ]
+  },
+  "conventions": {
+    "money": {
+      "type": "integer",
+      "unit": "Rupiah penuh (tanpa desimal)",
+      "rule": "Simpan semua nominal sebagai integer Rupiah. JANGAN pakai float. Contoh: Rp 1.500.000 disimpan sebagai 1500000.",
+      "display_format": "Rp 1.500.000 (pemisah ribuan titik)"
+    },
+    "dates": {
+      "storage": "Simpan waktu sebagai DateTime UTC lewat Drift. Tambahkan kolom 'local_date' (TEXT 'YYYY-MM-DD', zona Asia/Makassar) pada tabel yang butuh agregasi harian (transactions, resisted_events).",
+      "business_day_boundary": "Hari dihitung berdasarkan zona waktu Asia/Makassar (WITA, UTC+8). Pergantian hari pada 00:00 WITA.",
+      "month_boundary": "Bulan baru dimulai tanggal 1 pukul 00:00 WITA. 'release_month' memakai format 'YYYY-MM'.",
+      "rule": "Hitung local_date SEKALI saat menyimpan transaksi (lewat date_helper). Jangan menghitung ulang dari UTC di query."
+    },
+    "naming": {
+      "code_identifiers": "English. Dart style: lowerCamelCase variabel/fungsi, UpperCamelCase kelas, snake_case nama file.",
+      "ui_text": "Bahasa Indonesia, kumpulkan di core/constants/strings.dart.",
+      "db_tables_and_columns": "snake_case, jamak untuk tabel (transactions), tunggal untuk kolom (amount). Di Dart, Drift otomatis menjadi camelCase."
+    },
+    "ui_tone": "Santai, jujur, sedikit menampar tapi tidak menghakimi. Gunakan 'kamu'.",
+    "ids": "Primary key = uuid v4 (TEXT). Dibuat di aplikasi, bukan autoincrement."
+  },
+  "glossary": {
+    "runway": "Perkiraan jumlah hari pengguna bisa bertahan hidup memakai uang likuid yang ada.",
+    "liquid_cash": "Uang yang bisa langsung dipakai: saldo di amplop Needs, Wants, Bantalan Bulan Depan yang sudah cair, dan Unassigned Funds.",
+    "unassigned_funds": "Uang yang sudah masuk tapi belum diberi tugas (belum dialokasikan ke amplop). Target ideal selalu Rp 0.",
+    "envelope": "Pos/amplop anggaran. Setiap rupiah harus berada di salah satu amplop.",
+    "needs": "Kebutuhan wajib: makan, transport, tagihan.",
+    "wants": "Keinginan: kuota, top-up game, hiburan, jajan.",
+    "income_buffer": "Bantalan Bulan Depan. Sebagian uang dari project besar yang disembunyikan dulu dan baru cair ke Unassigned Funds pada tanggal 1 bulan depan.",
+    "pending_income": "Uang yang sudah pasti akan masuk tapi belum cair (misal invoice klien). TIDAK dihitung dalam runway.",
+    "streak_puasa_jajan": "Hitungan hari berturut-turut tanpa pengeluaran kategori Wants.",
+    "sweat_calculator": "Kalkulator Keringat. Pop-up yang menerjemahkan pengeluaran Wants ke satuan hari runway yang dikorbankan.",
+    "pay_yourself_first": "Amplop 'Bayar Diri Sendiri' untuk investasi, diperlakukan seperti tagihan wajib (bukan sisa uang).",
+    "net_worth": "Total aset dikurangi utang.",
+    "asset": "Sesuatu yang dimiliki dan punya nilai: reksa dana, saham, emas, kripto, laptop, motor, dll.",
+    "backup": "Salinan lengkap database yang diunggah ke Google Drive pengguna (appDataFolder) untuk pemulihan jika HP hilang.",
+    "restore": "Mengganti database lokal dengan salinan dari backup, biasanya di HP baru.",
+    "app_data_folder": "Folder tersembunyi di Google Drive yang hanya bisa diakses aplikasi ini (scope drive.appdata). Tidak tampil di Drive pengguna.",
+    "ledger": "Tabel transactions sebagai buku besar. Semua saldo diturunkan dari sini.",
+    "local_date": "Tanggal 'YYYY-MM-DD' menurut zona Asia/Makassar, disimpan di transaksi untuk agregasi harian."
+  },
+  "money_layers": {
+    "description": "Uang dibagi 3 lapisan. Pemisahan ini wajib agar Health Bar tidak berbohong.",
+    "layers": [
+      {
+        "id": "cash",
+        "name": "Cash (Likuid)",
+        "contains": [
+          "Unassigned Funds",
+          "Amplop Needs",
+          "Amplop Wants"
+        ],
+        "counts_in_runway": true,
+        "note": "Bantalan Bulan Depan yang sudah cair sudah menjadi Unassigned Funds, jadi otomatis masuk cash."
+      },
+      {
+        "id": "savings",
+        "name": "Savings (Tabungan Terkunci)",
+        "contains": [
+          "Dana Darurat",
+          "Target tabungan (laptop, liburan, dll)"
+        ],
+        "counts_in_runway": "Hanya Dana Darurat, dan hanya jika setting 'include_emergency_fund_in_runway' bernilai true (default: false)."
+      },
+      {
+        "id": "investments_assets",
+        "name": "Investasi & Aset",
+        "contains": [
+          "Reksa dana",
+          "Saham",
+          "Emas",
+          "Kripto",
+          "Aset fisik"
+        ],
+        "counts_in_runway": false
+      }
+    ],
+    "important_rule": "Bantalan Bulan Depan yang BELUM cair (disimpan di amplop sistem 'buffer') tidak dihitung dalam runway. Setelah dicairkan pada tanggal 1, uangnya pindah ke Unassigned Funds dan otomatis menjadi cash.",
+    "pay_yourself_first_note": "Saldo amplop 'Bayar Diri Sendiri' (v1.5) adalah uang yang sudah ditandai untuk investasi, TIDAK dihitung dalam runway (default, lihat OD-07)."
+  },
+  "formulas": {
+    "note": "Nilai default di bawah adalah usulan awal. Semua parameter harus bisa diubah lewat konfigurasi (lihat bagian 'settings'). Item yang masih menunggu keputusan ada di 'open_decisions'.",
+    "avg_daily_spend": {
+      "definition": "Rata-rata pengeluaran harian dari 30 hari terakhir.",
+      "default": "sum(expense transactions, 30 hari terakhir, kategori Needs + Wants) / 30",
+      "alternative": "Hanya Needs (mode 'survival'). Lihat open_decisions OD-01.",
+      "exclude": [
+        "Setor ke investasi",
+        "Transfer antar amplop",
+        "Setor ke target tabungan"
+      ],
+      "edge_case": "Jika data kurang dari 30 hari, bagi dengan jumlah hari sejak transaksi pertama (minimum 7 hari). Jika belum ada data sama sekali, tampilkan state 'Belum ada data' dan jangan tampilkan angka runway.",
+      "source_query": "Lihat data_model.key_queries.avg_daily_spend."
+    },
+    "runway_days": {
+      "formula": "floor(liquid_cash / avg_daily_spend)",
+      "liquid_cash_definition": "Saldo Unassigned + semua amplop berkategori 'needs' dan 'wants' (tidak diarsipkan). Lihat data_model.key_queries.liquid_cash.",
+      "edge_cases": [
+        "Jika avg_daily_spend = 0, tampilkan '∞' atau 'Belum ada pengeluaran tercatat', jangan bagi dengan nol.",
+        "Jika liquid_cash <= 0, runway = 0."
+      ]
+    },
+    "health_bar": {
+      "default_thresholds": {
+        "red": "runway_days < 15",
+        "yellow": "15 <= runway_days <= 30",
+        "green": "runway_days > 30"
+      },
+      "configurable": true,
+      "text_template": "Aman untuk {runway_days} hari ke depan",
+      "target_days": 30
+    },
+    "sweat_calculator": {
+      "formula": "cost_in_days = amount / avg_daily_spend",
+      "trigger": "Saat pengguna menyimpan transaksi pengeluaran dengan kategori Wants (dan juga saat mengetik nominal, opsional).",
+      "display": "Bulatkan ke 1 desimal. Jika < 0.1 hari, jangan tampilkan pop-up (terlalu kecil).",
+      "message_template": "Peringatan! Beli ini akan mengorbankan {cost_in_days} hari daya tahan hidupmu. Yakin?",
+      "actions": [
+        "Batalkan (menghitung sebagai menahan diri)",
+        "Tetap Beli"
+      ],
+      "example": "Kopi Rp 30.000, avg_daily_spend Rp 30.000, hasilnya 1 hari."
+    },
+    "puasa_jajan_streak": {
+      "day_counts_if": "Tidak ada transaksi pengeluaran kategori Wants pada hari itu (zona WITA) dan hari tersebut sudah berakhir atau sedang berjalan tanpa Wants.",
+      "streak_definition": "Jumlah hari berturut-turut yang memenuhi syarat sampai hari ini.",
+      "reset": "Streak reset menjadi 0 saat ada transaksi Wants yang disimpan.",
+      "cancel_purchase_event": "Membatalkan pembelian di pop-up Kalkulator Keringat dicatat sebagai event 'resisted' (hanya statistik, tidak mengubah aturan streak).",
+      "celebration": "Animasi perayaan saat streak melampaui rekor tertinggi (longest_streak) sebelumnya.",
+      "data_note": "Streak diturunkan dari tabel transactions (expense di amplop kategori 'wants', dikelompokkan per local_date). Streak dimulai dari tanggal 'app_started_on' (disimpan di app_settings). Hanya 'longest_streak' yang di-cache di app_settings."
+    },
+    "income_buffer_release": {
+      "rule": "Pada tanggal 1 setiap bulan, saldo Bantalan yang dijadwalkan untuk bulan tersebut dipindahkan ke Unassigned Funds.",
+      "implementation": "Pencairan dilakukan di sisi klien saat aplikasi dibuka (dan saat resume setelah pergantian bulan). Untuk setiap buffer_entries dengan release_month <= bulan sekarang dan status 'held', dalam SATU db.transaction(): (1) UPDATE buffer_entries SET status='released' WHERE id=? AND status='held' lalu pastikan jumlah baris terpengaruh = 1, jika 0 batalkan (sudah cair); (2) INSERT transaksi type 'buffer_release' dari amplop sistem 'buffer' ke 'unassigned'; (3) simpan release_transaction_id. Operasi idempoten karena syarat status='held'.",
+      "catch_up": "Jika aplikasi tidak dibuka beberapa bulan, cairkan semua entri yang jatuh tempo, urut dari yang tertua.",
+      "suggestion_trigger": "Saat uang masuk >= setting 'buffer_suggestion_min_income' (default Rp 1.000.000), tawarkan Bantalan.",
+      "suggestion_default_amount": "Default 1/3 dari nominal masuk atau sebesar avg bulanan Needs, mana yang lebih kecil. Pengguna bisa mengubah nominal."
+    },
+    "savings_pacing": {
+      "formula_daily": "required_per_day = (target_amount - current_amount) / days_remaining",
+      "formula_monthly": "required_per_month = (target_amount - current_amount) / months_remaining",
+      "dynamic_rule": "Hitung ulang setiap kali setoran masuk atau tanggal berubah. Jika target sudah tercapai, tampilkan status 'Tercapai'. Jika tenggat lewat dan belum tercapai, tampilkan status 'Terlambat' dengan opsi ubah tenggat.",
+      "runway_guard": "Jika runway < 30 hari, tampilkan peringatan bahwa setoran ke target sebaiknya dijeda (hanya saran, tidak memblokir)."
+    },
+    "priority_ladder": {
+      "description": "Tangga prioritas untuk saran alokasi saat uang masuk.",
+      "stage_1": "Runway <= 30 hari: fokus bertahan. Investasi ditandai 'dijeda dulu'.",
+      "stage_2": "Runway > 30 hari tapi Dana Darurat belum mencapai target (default 6 bulan pengeluaran Needs): prioritaskan Dana Darurat.",
+      "stage_3": "Runway > 30 hari dan Dana Darurat terpenuhi: sarankan setor ke Investasi.",
+      "enforcement": "Hanya saran dan penanda UI. Pengguna tetap boleh melanggar."
+    },
+    "net_worth": {
+      "formula": "total_cash + total_savings + sum(asset.currentValue) - sum(liabilities)",
+      "note": "Utang (liabilities) belum ada di v1.5. Sementara net_worth = cash + savings + aset.",
+      "trend": "Simpan snapshot net worth bulanan untuk grafik tren."
+    },
+    "asset_gain": {
+      "invested_capital": "Total setoran bersih (setoran dikurangi penarikan) ke sebuah aset.",
+      "gain": "currentValue - invested_capital",
+      "gain_percent": "gain / invested_capital * 100 (jika invested_capital > 0)",
+      "rule": "Pertumbuhan nilai dicatat terpisah dari uang yang disetor. Update nilai aset TIDAK mengubah saldo cash."
+    }
+  },
+  "navigation": {
+    "type": "Bottom tabs + floating action button",
+    "tabs": [
+      {
+        "id": "home",
+        "label": "Beranda",
+        "icon": "🏠",
+        "screen": "SurvivalDashboard"
+      },
+      {
+        "id": "budget",
+        "label": "Alokasi",
+        "icon": "💼",
+        "screen": "BudgetRoom"
+      },
+      {
+        "id": "future",
+        "label": "Target",
+        "icon": "🚀",
+        "screen": "FutureScreen"
+      }
+    ],
+    "fab": {
+      "id": "add_transaction",
+      "icon": "➕",
+      "position": "Tengah bawah, mengambang di antara tab",
+      "opens": "TransactionEntryModal"
+    }
+  },
+  "screens": [
+    {
+      "id": "SurvivalDashboard",
+      "tab": "home",
+      "title": "Beranda (Survival Dashboard)",
+      "purpose": "Memberi 'tamparan realita' tentang kondisi keuangan hari ini. Layar pertama yang dilihat.",
+      "version": "v1",
+      "components": [
+        {
+          "id": "HealthBar",
+          "description": "Kotak besar berwarna (hijau/kuning/merah) sesuai threshold runway.",
+          "shows": "Teks 'Aman untuk X hari ke depan'.",
+          "data": "runway_days (lihat formulas.runway_days)",
+          "states": [
+            "green",
+            "yellow",
+            "red",
+            "no_data"
+          ]
+        },
+        {
+          "id": "PendingIncomeNote",
+          "description": "Teks penenang di bawah Health Bar.",
+          "shows": "Contoh: 'Ada Rp 1.500.000 menunggu cair.'",
+          "data": "Jumlah semua pendingIncome berstatus 'pending'.",
+          "hidden_if": "Tidak ada pending income."
+        },
+        {
+          "id": "PuasaJajanStreak",
+          "description": "Mini kalender atau deretan ikon api. Ikon 🔥 menyala untuk hari tanpa pengeluaran Wants.",
+          "shows": "Streak saat ini, rekor tertinggi, dan tampilan 7 hari terakhir.",
+          "celebration": "Animasi perayaan saat memecahkan rekor."
+        },
+        {
+          "id": "NetWorthLine",
+          "description": "Satu baris kecil di bawah Health Bar. Jangan dibuat besar agar fokus tetap ke runway.",
+          "shows": "Contoh: 'Net Worth: Rp 12.400.000 (+Rp 300.000 bulan ini)'",
+          "version": "v1.5"
+        },
+        {
+          "id": "UpcomingBillsWarning",
+          "description": "Opsional: ringkasan tagihan jatuh tempo dalam 3 hari (detail ada di Radar Langganan).",
+          "version": "v1"
+        },
+        {
+          "id": "BackupStatusBanner",
+          "description": "Banner kecil dan tidak mengganggu. Muncul jika belum pernah backup atau backup terakhir lebih lama dari settings.backup_stale_warning_days. Ketuk untuk membuka BackupRestoreScreen.",
+          "version": "v1"
+        }
+      ]
+    },
+    {
+      "id": "BudgetRoom",
+      "tab": "budget",
+      "title": "Kolam Alokasi (Budget Room)",
+      "purpose": "Tempat 'mempekerjakan' uang. Setiap rupiah dialokasikan ke amplop.",
+      "version": "v1",
+      "components": [
+        {
+          "id": "UnassignedFundsHeader",
+          "description": "Angka besar di atas layar. Target selalu Rp 0.",
+          "states": {
+            "zero": "Netral/hijau, pesan 'Semua uang sudah punya tugas'.",
+            "positive": "Peringatan lembut, 'Masih ada Rp X yang belum dikasih tugas'.",
+            "negative": "Merah. Tidak boleh terjadi lewat alur normal (lihat business_rules BR-03)."
+          }
+        },
+        {
+          "id": "IncomeBufferEnvelope",
+          "title": "Bantalan Bulan Depan",
+          "description": "Amplop khusus yang MUNCUL otomatis ketika pengguna menerima project besar dan menyetujui saran Bantalan. Uang di sini disembunyikan dan cair ke Unassigned Funds tanggal 1 bulan depan.",
+          "shows": "Total tertahan, dan tanggal pencairan.",
+          "visibility": "Hanya tampil jika ada entri Bantalan berstatus 'held'."
+        },
+        {
+          "id": "NeedsEnvelopes",
+          "title": "Amplop Kebutuhan (Needs)",
+          "default_envelopes": [
+            "Makan",
+            "Transport",
+            "Tagihan"
+          ],
+          "user_can": [
+            "tambah amplop",
+            "ubah nama",
+            "ubah ikon",
+            "arsipkan"
+          ]
+        },
+        {
+          "id": "WantsEnvelopes",
+          "title": "Amplop Keinginan (Wants)",
+          "default_envelopes": [
+            "Kuota",
+            "Top-up Game",
+            "Hiburan"
+          ],
+          "user_can": [
+            "tambah amplop",
+            "ubah nama",
+            "ubah ikon",
+            "arsipkan"
+          ]
+        },
+        {
+          "id": "PayYourselfFirstEnvelope",
+          "title": "Bayar Diri Sendiri",
+          "description": "Amplop untuk setoran investasi, diperlakukan seperti tagihan wajib. Bisa ditandai 'dijeda dulu' saat runway kuning atau merah.",
+          "version": "v1.5"
+        },
+        {
+          "id": "SubscriptionRadar",
+          "title": "Radar Langganan",
+          "description": "Daftar tagihan tetap, misalnya VPS Hostinger, Domain, Notion, Streaming.",
+          "fields_per_item": [
+            "nama",
+            "nominal",
+            "siklus (bulanan/tahunan)",
+            "tanggal jatuh tempo berikutnya",
+            "amplop sumber pembayaran"
+          ],
+          "warning_rule": "Jika ada tagihan jatuh tempo dalam 3 hari (setting subscription_warning_days), tampilkan peringatan merah, contoh: 'VPS jatuh tempo 3 hari lagi, pastikan amplop Tagihan cukup!'",
+          "extra_check": "Bandingkan nominal tagihan dengan saldo amplop sumber. Jika saldo kurang, peringatan lebih mendesak.",
+          "notification": "Jadwalkan notifikasi lokal untuk setiap tagihan (lihat notifications)."
+        },
+        {
+          "id": "EnvelopeAllocationAction",
+          "description": "Aksi memindahkan uang dari Unassigned Funds ke amplop, atau antar amplop.",
+          "version": "v1"
+        }
+      ]
+    },
+    {
+      "id": "FutureScreen",
+      "tab": "future",
+      "title": "Target & Impian (The Future)",
+      "purpose": "Memantau masa depan: target tabungan, dana darurat, dan nanti portofolio.",
+      "version": "v1 (Target + Dana Darurat), v1.5 (Portofolio & Aset)",
+      "sections": [
+        {
+          "id": "GoalsSection",
+          "title": "Target",
+          "description": "Kartu-kartu target, contoh: Beli Laptop, Liburan.",
+          "card_shows": [
+            "nama",
+            "target nominal",
+            "terkumpul",
+            "progress bar",
+            "tenggat",
+            "Savings Pacing"
+          ],
+          "version": "v1"
+        },
+        {
+          "id": "EmergencyFundSection",
+          "title": "Dana Darurat",
+          "description": "Kartu khusus dana darurat. Target default 6 bulan pengeluaran Needs (untuk pendapatan tidak tetap).",
+          "version": "v1"
+        },
+        {
+          "id": "PortfolioSection",
+          "title": "Portofolio & Aset",
+          "description": "Daftar investasi dan aset dengan nilai yang diinput manual.",
+          "shows": [
+            "porsi aset (diagram)",
+            "daftar aset",
+            "modal vs keuntungan",
+            "net worth + tren"
+          ],
+          "version": "v1.5"
+        }
+      ]
+    },
+    {
+      "id": "TransactionEntryModal",
+      "tab": null,
+      "title": "Pintu Masuk Transaksi",
+      "trigger": "Tombol ➕ tengah",
+      "purpose": "Mencatat uang masuk dan keluar dengan cepat (maksimal 3 ketukan untuk kasus umum).",
+      "transaction_types": [
+        {
+          "id": "income",
+          "label": "Uang Masuk",
+          "flow": [
+            "Input nominal, sumber (klien/project), catatan, tanggal.",
+            "Uang masuk ke Unassigned Funds.",
+            "Jika nominal >= buffer_suggestion_min_income, tampilkan saran Bantalan Bulan Depan.",
+            "Arahkan pengguna ke Kolam Alokasi untuk membagi sisa uang."
+          ],
+          "version": "v1"
+        },
+        {
+          "id": "expense",
+          "label": "Uang Keluar",
+          "flow": [
+            "Input nominal, pilih amplop, catatan, tanggal.",
+            "Jika amplop berkategori Wants, jalankan Kalkulator Keringat sebelum menyimpan.",
+            "Kurangi saldo amplop. Jika saldo amplop tidak cukup, tampilkan peringatan (lihat BR-04)."
+          ],
+          "version": "v1"
+        },
+        {
+          "id": "pending_income",
+          "label": "Catat Uang di Jalan",
+          "flow": [
+            "Input nominal, klien, perkiraan tanggal cair.",
+            "Tidak mengubah saldo. Tampil di Beranda sebagai Pending Income."
+          ],
+          "mark_received": "Saat pending income dicairkan, ubah status menjadi 'received' dan otomatis buat transaksi income.",
+          "version": "v1"
+        },
+        {
+          "id": "transfer",
+          "label": "Pindah Antar Amplop",
+          "version": "v1"
+        },
+        {
+          "id": "goal_deposit",
+          "label": "Setor ke Target",
+          "version": "v1"
+        },
+        {
+          "id": "asset_deposit",
+          "label": "Setor ke Investasi",
+          "version": "v1.5"
+        },
+        {
+          "id": "asset_withdraw",
+          "label": "Tarik dari Investasi",
+          "version": "v1.5"
+        },
+        {
+          "id": "asset_value_update",
+          "label": "Update Nilai Aset",
+          "description": "Input nilai terkini aset secara manual. Tidak mengubah saldo cash.",
+          "version": "v1.5"
+        }
+      ]
+    },
+    {
+      "id": "SettingsScreen",
+      "tab": null,
+      "title": "Pengaturan",
+      "reachable_from": "Ikon di header Beranda",
+      "version": "v1",
+      "see": "settings",
+      "sections": [
+        {
+          "id": "BackupSection",
+          "title": "Backup & Pemulihan",
+          "description": "Status backup terakhir, tombol 'Backup sekarang', 'Pulihkan dari backup', akun Google yang terhubung, dan 'Putuskan akun'.",
+          "version": "v1"
+        },
+        {
+          "id": "ExportSection",
+          "title": "Ekspor manual",
+          "description": "Bagikan salinan database (file) lewat share sheet sebagai cadangan kedua.",
+          "version": "v1"
+        },
+        {
+          "id": "NotificationSection",
+          "title": "Notifikasi",
+          "version": "v1"
+        },
+        {
+          "id": "RunwaySection",
+          "title": "Aturan runway",
+          "description": "Mode runway, batas warna Health Bar, dsb.",
+          "version": "v1"
+        }
+      ]
+    },
+    {
+      "id": "BackupRestoreScreen",
+      "tab": null,
+      "title": "Backup & Pemulihan",
+      "reachable_from": "Pengaturan, banner di Beranda, dan Onboarding (opsi Pulihkan)",
+      "version": "v1",
+      "components": [
+        {
+          "id": "BackupStatusCard",
+          "shows": "Akun Google, waktu backup terakhir, status (berhasil/gagal/menunggu), ukuran."
+        },
+        {
+          "id": "BackupNowButton",
+          "description": "Memicu backup manual."
+        },
+        {
+          "id": "BackupListSheet",
+          "description": "Daftar backup di Drive (tanggal, versi skema, jumlah transaksi). Dipakai saat Pulihkan."
+        },
+        {
+          "id": "RestoreConfirmDialog",
+          "description": "Konfirmasi tegas bahwa data di HP ini akan diganti."
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "F-01",
+      "name": "Health Bar / Runway",
+      "version": "v1",
+      "priority": "must",
+      "description": "Menampilkan daya tahan hidup dalam hari dengan warna hijau/kuning/merah.",
+      "acceptance_criteria": [
+        "Runway dihitung dengan formulas.runway_days.",
+        "Warna berubah sesuai threshold yang bisa dikonfigurasi.",
+        "Tangani kasus tidak ada data dan pembagi nol tanpa crash."
+      ]
+    },
+    {
+      "id": "F-02",
+      "name": "Pending Income",
+      "version": "v1",
+      "priority": "must",
+      "description": "Mencatat uang yang sudah pasti tapi belum cair, ditampilkan sebagai teks penenang.",
+      "acceptance_criteria": [
+        "Tidak mengubah saldo dan tidak dihitung dalam runway.",
+        "Bisa ditandai 'sudah cair' dan otomatis menjadi transaksi income."
+      ]
+    },
+    {
+      "id": "F-03",
+      "name": "Puasa Jajan (Streak Gamifikasi)",
+      "version": "v1",
+      "priority": "should",
+      "description": "Ikon api untuk hari tanpa pengeluaran Wants. Animasi perayaan saat memecahkan rekor.",
+      "acceptance_criteria": [
+        "Aturan streak sesuai formulas.puasa_jajan_streak.",
+        "Menyimpan streak saat ini dan rekor tertinggi."
+      ]
+    },
+    {
+      "id": "F-04",
+      "name": "Unassigned Funds (Zero-based budgeting)",
+      "version": "v1",
+      "priority": "must",
+      "description": "Semua uang masuk berawal di Unassigned Funds, lalu dibagi ke amplop sampai Rp 0."
+    },
+    {
+      "id": "F-05",
+      "name": "Bantalan Bulan Depan (Income Buffer)",
+      "version": "v1",
+      "priority": "must",
+      "description": "Menyimpan sebagian uang project besar untuk dicairkan tanggal 1 bulan depan.",
+      "acceptance_criteria": [
+        "Disarankan otomatis saat income besar.",
+        "Pencairan idempoten di dalam satu db.transaction() (lihat formulas.income_buffer_release).",
+        "Uang yang tertahan tidak dihitung dalam runway sampai cair."
+      ]
+    },
+    {
+      "id": "F-06",
+      "name": "Amplop Needs dan Wants",
+      "version": "v1",
+      "priority": "must",
+      "description": "Amplop anggaran dengan dua kategori. Pengguna bisa menambah, mengubah, mengarsipkan."
+    },
+    {
+      "id": "F-07",
+      "name": "Radar Langganan",
+      "version": "v1",
+      "priority": "must",
+      "description": "Daftar tagihan berulang dengan peringatan merah H-3 sebelum jatuh tempo."
+    },
+    {
+      "id": "F-08",
+      "name": "Kalkulator Keringat",
+      "version": "v1",
+      "priority": "must",
+      "description": "Pop-up konversi pengeluaran Wants ke hari runway yang dikorbankan.",
+      "acceptance_criteria": [
+        "Muncul hanya untuk pengeluaran kategori Wants.",
+        "Ada tombol Batalkan dan Tetap Beli.",
+        "Batalkan tidak menyimpan transaksi dan mencatat event 'resisted'."
+      ]
+    },
+    {
+      "id": "F-09",
+      "name": "Target dan Savings Pacing",
+      "version": "v1",
+      "priority": "should",
+      "description": "Kartu target tabungan dengan rekomendasi setoran harian/bulanan yang dinamis."
+    },
+    {
+      "id": "F-10",
+      "name": "Dana Darurat",
+      "version": "v1",
+      "priority": "should",
+      "description": "Target khusus, default 6 bulan pengeluaran Needs."
+    },
+    {
+      "id": "F-11",
+      "name": "Notifikasi Lokal",
+      "version": "v1",
+      "priority": "must",
+      "description": "Pengingat mencatat transaksi dan peringatan tagihan memakai flutter_local_notifications, bekerja offline."
+    },
+    {
+      "id": "F-12",
+      "name": "Distribusi & Update",
+      "version": "v1",
+      "priority": "could",
+      "description": "v1: update lewat build APK/AAB dan install manual. OTA tanpa rilis ulang tidak bawaan di Flutter; opsi pihak ketiga Shorebird dievaluasi nanti (OD-06). Jangan membangun mekanisme update sendiri.",
+      "acceptance_criteria": [
+        "Proyek bisa di-build release APK dengan 'flutter build apk'."
+      ]
+    },
+    {
+      "id": "F-13",
+      "name": "Amplop Bayar Diri Sendiri",
+      "version": "v1.5",
+      "priority": "should",
+      "description": "Amplop investasi yang diperlakukan seperti tagihan wajib. Bisa dijeda saat runway kuning/merah."
+    },
+    {
+      "id": "F-14",
+      "name": "Portofolio & Aset (input manual)",
+      "version": "v1.5",
+      "priority": "should",
+      "description": "Daftar aset dengan nilai yang diperbarui manual. TANPA integrasi API harga saham/kripto.",
+      "asset_types": [
+        "reksa_dana",
+        "saham",
+        "emas",
+        "kripto",
+        "aset_fisik",
+        "lainnya"
+      ],
+      "acceptance_criteria": [
+        "Update nilai aset tidak mengubah saldo cash.",
+        "Modal dan keuntungan dilacak terpisah.",
+        "Aset tidak pernah dihitung dalam runway."
+      ]
+    },
+    {
+      "id": "F-15",
+      "name": "Net Worth Tracker",
+      "version": "v1.5",
+      "priority": "should",
+      "description": "Total kekayaan bersih dan tren bulanan dari snapshot."
+    },
+    {
+      "id": "F-16",
+      "name": "Porsi Aset",
+      "version": "v1.5",
+      "priority": "could",
+      "description": "Diagram sederhana komposisi aset, contoh 50% emas, 30% reksa dana, 20% kripto."
+    },
+    {
+      "id": "F-17",
+      "name": "Pay Yourself First otomatis (saran alokasi)",
+      "version": "v1.5",
+      "priority": "could",
+      "description": "Saat uang masuk besar, sarankan persentase ke Bantalan, Dana Darurat, dan Investasi sekaligus berdasarkan priority_ladder."
+    },
+    {
+      "id": "F-18",
+      "name": "Kalkulator Keringat versi investasi",
+      "version": "v1.5",
+      "priority": "could",
+      "description": "Contoh: 'Rp 300.000 ini bisa jadi 10 hari runway ATAU investasi. Pilih mana?'"
+    },
+    {
+      "id": "F-19",
+      "name": "Backup & Restore Google Drive",
+      "version": "v1",
+      "priority": "must",
+      "description": "Database di-backup otomatis ke Google Drive pengguna (appDataFolder) dan bisa dipulihkan di HP baru.",
+      "acceptance_criteria": [
+        "Login Google dengan scope drive.appdata saja.",
+        "Backup dibuat dari salinan konsisten (VACUUM INTO), dikompres gzip, diunggah ke appDataFolder.",
+        "Backup otomatis: (a) ditunda 5 menit setelah perubahan data terakhir, (b) saat aplikasi dibuka jika backup terakhir > 24 jam, (c) best-effort saat aplikasi masuk background. Semua hanya jika online dan akun terhubung.",
+        "Backup manual lewat tombol 'Backup sekarang'.",
+        "Menyimpan maksimal N backup terbaru (default 10), yang lebih lama dihapus otomatis.",
+        "Restore: daftar backup, pilih (default terbaru), unduh, validasi (PRAGMA integrity_check dan schema_version), konfirmasi, ganti database, jadwalkan ulang notifikasi, jalankan pengecekan pencairan Bantalan.",
+        "Sebelum menimpa data lokal yang sudah ada, simpan salinan pengaman lokal.",
+        "Tolak restore dari backup dengan schema_version LEBIH BARU dari aplikasi, dengan pesan jelas untuk memperbarui aplikasi.",
+        "Kegagalan backup tidak pernah memblokir UI; tampilkan status dan coba lagi nanti.",
+        "Ada banner pengingat jika belum pernah/lama tidak backup."
+      ]
+    },
+    {
+      "id": "F-20",
+      "name": "Ekspor manual",
+      "version": "v1",
+      "priority": "should",
+      "description": "Bagikan salinan database (gzip) lewat share sheet sebagai cadangan kedua di luar Google Drive.",
+      "acceptance_criteria": [
+        "Memakai salinan konsisten (VACUUM INTO).",
+        "Tidak membuka akses internet."
+      ]
+    }
+  ],
+  "business_rules": [
+    {
+      "id": "BR-01",
+      "rule": "Semua uang masuk selalu berawal di Unassigned Funds, kecuali bagian yang langsung dialihkan ke Bantalan Bulan Depan lewat saran Bantalan."
+    },
+    {
+      "id": "BR-02",
+      "rule": "Saldo TIDAK disimpan di kolom. Saldo amplop = SUM(masuk) - SUM(keluar) dari transaksi yang deleted_at IS NULL. Lihat data_model.key_queries."
+    },
+    {
+      "id": "BR-03",
+      "rule": "Unassigned Funds tidak boleh negatif lewat alur normal. Alokasi ke amplop dibatasi sebesar saldo Unassigned yang tersedia."
+    },
+    {
+      "id": "BR-04",
+      "rule": "Jika pengeluaran melebihi saldo amplop, tampilkan peringatan dan tawarkan memindahkan uang dari amplop lain. Pengguna boleh tetap menyimpan, amplop menjadi negatif dan ditandai merah (overspent)."
+    },
+    {
+      "id": "BR-05",
+      "rule": "Uang di Bantalan yang belum cair, Pending Income, Investasi, dan Aset TIDAK dihitung dalam runway."
+    },
+    {
+      "id": "BR-06",
+      "rule": "Pending Income tidak mengubah saldo apa pun sampai ditandai 'sudah cair'."
+    },
+    {
+      "id": "BR-07",
+      "rule": "Setoran ke investasi dan target tabungan BUKAN pengeluaran. Jangan dimasukkan ke avg_daily_spend."
+    },
+    {
+      "id": "BR-08",
+      "rule": "Update nilai aset tidak membuat transaksi cash. Hanya setoran dan penarikan yang menggerakkan cash."
+    },
+    {
+      "id": "BR-09",
+      "rule": "Pencairan Bantalan harus idempoten: ubah status 'held' -> 'released' dengan syarat status masih 'held' dan buat transaksi pencairan dalam SATU db.transaction()."
+    },
+    {
+      "id": "BR-10",
+      "rule": "Transaksi boleh diedit atau dihapus. Gunakan soft delete (kolom deleted_at) agar riwayat bisa direkonstruksi. Query agregasi wajib menyaring deleted_at IS NULL."
+    },
+    {
+      "id": "BR-11",
+      "rule": "Tangga prioritas (priority_ladder) hanya saran dan penanda UI, tidak pernah memblokir pengguna."
+    },
+    {
+      "id": "BR-12",
+      "rule": "Semua nominal adalah integer Rupiah. Tolak input negatif atau nol pada transaksi."
+    },
+    {
+      "id": "BR-13",
+      "rule": "Backup tidak boleh memblokir UI atau pencatatan transaksi. Kegagalan backup hanya mengubah status backup."
+    },
+    {
+      "id": "BR-14",
+      "rule": "Restore tidak boleh menimpa data lokal tanpa konfirmasi eksplisit dan tanpa membuat salinan pengaman lokal terlebih dahulu."
+    },
+    {
+      "id": "BR-15",
+      "rule": "Backup dengan schema_version lebih baru dari aplikasi ditolak. Backup lebih lama dimigrasikan setelah restore."
+    },
+    {
+      "id": "BR-16",
+      "rule": "Hanya scope Google 'drive.appdata' yang boleh diminta. Dilarang meminta akses ke seluruh Drive."
+    },
+    {
+      "id": "BR-17",
+      "rule": "Sebelum menjalankan migrasi skema database, buat salinan pengaman file database lokal."
+    },
+    {
+      "id": "BR-18",
+      "rule": "Amplop sistem 'unassigned' dan 'buffer' dibuat otomatis saat database pertama kali dibuat, tidak bisa dihapus atau diarsipkan."
+    }
+  ],
+  "data_model": {
+    "database": "Drift (SQLite lokal)",
+    "structure_note": "Satu database lokal milik satu pengguna (tanpa uid, tanpa kolom user_id). Primary key semua tabel = TEXT uuid v4. 'amount' selalu INTEGER Rupiah > 0 (CHECK amount > 0). 'DateTime' = Drift DateTime (UTC).",
+    "schema_version": 1,
+    "ledger_semantics": {
+      "description": "Setiap transaksi memindahkan 'amount' dari sumber ke tujuan. Null pada from/to berarti dunia luar (di luar aplikasi). Amplop sistem 'unassigned' dan 'buffer' adalah baris di tabel envelopes.",
+      "types": {
+        "income": "from=NULL, to=unassigned. Cash bertambah.",
+        "expense": "from=envelope (needs/wants), to=NULL. counts_as_spending=1. Cash berkurang.",
+        "allocation": "from=unassigned, to=envelope.",
+        "transfer": "from=envelope A, to=envelope B.",
+        "buffer_hold": "from=unassigned, to=buffer (amplop sistem). Keluar dari cash.",
+        "buffer_release": "from=buffer, to=unassigned. Kembali menjadi cash.",
+        "goal_deposit": "from=envelope atau unassigned, to=NULL, goal_id terisi. Keluar dari cash. counts_as_spending=0.",
+        "goal_withdraw": "from=NULL, to=unassigned, goal_id terisi.",
+        "asset_deposit": "(v1.5) from=envelope, to=NULL, asset_id terisi. counts_as_spending=0.",
+        "asset_withdraw": "(v1.5) from=NULL, to=unassigned, asset_id terisi."
+      }
+    },
+    "tables": {
+      "envelopes": {
+        "description": "Amplop anggaran, termasuk amplop sistem.",
+        "columns": {
+          "id": "TEXT PK",
+          "name": "TEXT NOT NULL",
+          "category": "TEXT NOT NULL CHECK IN ('unassigned','buffer','needs','wants','pay_yourself_first')",
+          "icon": "TEXT (emoji)",
+          "is_system": "INTEGER 0/1",
+          "is_archived": "INTEGER 0/1",
+          "is_paused": "INTEGER 0/1 (v1.5)",
+          "sort_order": "INTEGER",
+          "created_at": "DATETIME"
+        },
+        "seed": "Saat database dibuat: 'unassigned' dan 'buffer' (is_system=1), plus amplop default Needs (Makan, Transport, Tagihan) dan Wants (Kuota, Top-up Game, Hiburan)."
+      },
+      "transactions": {
+        "description": "Buku besar. Semua pergerakan uang.",
+        "columns": {
+          "id": "TEXT PK",
+          "type": "TEXT NOT NULL CHECK IN ('income','expense','allocation','transfer','buffer_hold','buffer_release','goal_deposit','goal_withdraw','asset_deposit','asset_withdraw')",
+          "amount": "INTEGER NOT NULL CHECK > 0",
+          "occurred_at": "DATETIME NOT NULL",
+          "local_date": "TEXT NOT NULL 'YYYY-MM-DD' (Asia/Makassar)",
+          "from_envelope_id": "TEXT NULL FK envelopes",
+          "to_envelope_id": "TEXT NULL FK envelopes",
+          "goal_id": "TEXT NULL FK goals",
+          "asset_id": "TEXT NULL FK assets (v1.5)",
+          "counts_as_spending": "INTEGER 0/1 (1 hanya untuk expense)",
+          "note": "TEXT",
+          "source": "TEXT NULL (nama klien untuk income)",
+          "pending_income_id": "TEXT NULL FK pending_incomes",
+          "buffer_entry_id": "TEXT NULL FK buffer_entries",
+          "deleted_at": "DATETIME NULL",
+          "created_at": "DATETIME",
+          "updated_at": "DATETIME"
+        },
+        "indexes": [
+          "(local_date)",
+          "(type, local_date)",
+          "(from_envelope_id)",
+          "(to_envelope_id)",
+          "(goal_id)",
+          "(deleted_at)"
+        ]
+      },
+      "pending_incomes": {
+        "description": "Uang di jalan. Tidak mengubah saldo.",
+        "columns": {
+          "id": "TEXT PK",
+          "amount": "INTEGER > 0",
+          "client": "TEXT",
+          "expected_date": "TEXT NULL 'YYYY-MM-DD'",
+          "status": "TEXT CHECK IN ('pending','received','cancelled')",
+          "received_transaction_id": "TEXT NULL",
+          "created_at": "DATETIME"
+        }
+      },
+      "buffer_entries": {
+        "description": "Bantalan Bulan Depan.",
+        "columns": {
+          "id": "TEXT PK",
+          "amount": "INTEGER > 0",
+          "release_month": "TEXT 'YYYY-MM'",
+          "status": "TEXT CHECK IN ('held','released')",
+          "hold_transaction_id": "TEXT FK transactions",
+          "release_transaction_id": "TEXT NULL FK transactions",
+          "created_at": "DATETIME"
+        },
+        "indexes": [
+          "(status, release_month)"
+        ]
+      },
+      "subscriptions": {
+        "description": "Radar Langganan.",
+        "columns": {
+          "id": "TEXT PK",
+          "name": "TEXT",
+          "amount": "INTEGER > 0",
+          "cycle": "TEXT CHECK IN ('monthly','yearly')",
+          "next_due_date": "TEXT 'YYYY-MM-DD'",
+          "envelope_id": "TEXT FK envelopes",
+          "is_active": "INTEGER 0/1",
+          "notification_seq": "INTEGER UNIQUE (basis ID notifikasi lokal; notifikasi H-3 = seq*10+1, H-0 = seq*10+2)"
+        }
+      },
+      "goals": {
+        "description": "Target tabungan dan Dana Darurat. Saldo terkumpul diturunkan dari transaksi goal_deposit/goal_withdraw.",
+        "columns": {
+          "id": "TEXT PK",
+          "name": "TEXT",
+          "type": "TEXT CHECK IN ('goal','emergency_fund')",
+          "target_amount": "INTEGER > 0",
+          "deadline": "TEXT NULL 'YYYY-MM-DD'",
+          "status": "TEXT CHECK IN ('active','achieved','paused')",
+          "created_at": "DATETIME"
+        }
+      },
+      "resisted_events": {
+        "description": "Pembelian Wants yang dibatalkan setelah melihat Kalkulator Keringat (statistik).",
+        "columns": {
+          "id": "TEXT PK",
+          "amount": "INTEGER",
+          "occurred_at": "DATETIME",
+          "local_date": "TEXT"
+        }
+      },
+      "app_settings": {
+        "description": "Key-value untuk pengaturan dan state ringan.",
+        "columns": {
+          "key": "TEXT PK",
+          "value": "TEXT (JSON atau string)"
+        },
+        "keys": [
+          "app_started_on",
+          "longest_streak",
+          "onboarding_done",
+          "last_buffer_release_check",
+          "backup_google_email",
+          "last_backup_at",
+          "last_backup_status",
+          "backup_dirty_since",
+          "...semua key di bagian 'settings'"
+        ]
+      },
+      "assets": {
+        "version": "v1.5",
+        "description": "Investasi dan aset (nilai manual).",
+        "columns": {
+          "id": "TEXT PK",
+          "name": "TEXT",
+          "type": "TEXT CHECK IN ('reksa_dana','saham','emas','kripto','aset_fisik','lainnya')",
+          "current_value": "INTEGER >= 0",
+          "last_value_update": "DATETIME",
+          "is_archived": "INTEGER 0/1"
+        },
+        "note": "invested_capital diturunkan dari transaksi asset_deposit/asset_withdraw."
+      },
+      "asset_value_history": {
+        "version": "v1.5",
+        "columns": {
+          "id": "TEXT PK",
+          "asset_id": "TEXT FK",
+          "value": "INTEGER",
+          "recorded_on": "TEXT 'YYYY-MM-DD'"
+        }
+      },
+      "net_worth_snapshots": {
+        "version": "v1.5",
+        "columns": {
+          "month": "TEXT PK 'YYYY-MM'",
+          "cash": "INTEGER",
+          "savings": "INTEGER",
+          "assets": "INTEGER",
+          "net_worth": "INTEGER"
+        }
+      }
+    },
+    "key_queries": {
+      "note": "Pseudo-SQL referensi. Selalu saring deleted_at IS NULL. :today dan :from adalah local_date (WITA).",
+      "envelope_balance": "SELECT COALESCE((SELECT SUM(amount) FROM transactions WHERE to_envelope_id=:id AND deleted_at IS NULL),0) - COALESCE((SELECT SUM(amount) FROM transactions WHERE from_envelope_id=:id AND deleted_at IS NULL),0)",
+      "liquid_cash": "Jumlah envelope_balance untuk envelope dengan category IN ('unassigned','needs','wants') dan is_archived=0.",
+      "avg_daily_spend": "SELECT COALESCE(SUM(amount),0) FROM transactions WHERE type='expense' AND counts_as_spending=1 AND deleted_at IS NULL AND local_date BETWEEN :from AND :today; lalu bagi dengan jumlah hari (lihat formulas.avg_daily_spend untuk kasus data < 30 hari).",
+      "goal_current_amount": "SUM(amount) WHERE type='goal_deposit' AND goal_id=:id MINUS SUM(amount) WHERE type='goal_withdraw' AND goal_id=:id",
+      "wants_days_with_spending": "SELECT DISTINCT t.local_date FROM transactions t JOIN envelopes e ON e.id=t.from_envelope_id WHERE t.type='expense' AND e.category='wants' AND t.deleted_at IS NULL",
+      "pending_total": "SELECT COALESCE(SUM(amount),0) FROM pending_incomes WHERE status='pending'",
+      "buffer_due": "SELECT * FROM buffer_entries WHERE status='held' AND release_month <= :currentMonth ORDER BY release_month"
+    },
+    "migrations": {
+      "rule": "Naikkan schemaVersion setiap perubahan skema. Tulis MigrationStrategy.onUpgrade yang tidak menghapus data. Jangan pernah drop-and-recreate tabel berisi data pengguna.",
+      "before_migration": "Salin file database ke file pengaman lokal (BR-17).",
+      "tests": "Uji migrasi dari setiap versi lama ke versi terbaru dengan data contoh."
+    },
+    "backup_file_format": {
+      "name": "runway_backup_<YYYYMMDD_HHmmss>.db.gz",
+      "content": "Salinan SQLite hasil VACUUM INTO, dikompres gzip.",
+      "drive_metadata": "Simpan di appProperties Drive: schema_version, app_version, created_at, transaction_count.",
+      "location": "appDataFolder",
+      "retention": "settings.backup_retention_count"
+    }
+  },
+  "settings": {
+    "description": "Parameter yang bisa diubah pengguna. Disimpan di tabel app_settings (key-value) dengan nilai default berikut.",
+    "defaults": {
+      "runway_mode": "all_spending",
+      "health_thresholds": {
+        "red_below": 15,
+        "green_above": 30
+      },
+      "include_emergency_fund_in_runway": false,
+      "buffer_suggestion_min_income": 1000000,
+      "subscription_warning_days": 3,
+      "emergency_fund_target_months": 6,
+      "sweat_calculator_enabled": true,
+      "daily_reminder_time": "20:00",
+      "daily_reminder_enabled": true,
+      "backup_auto_enabled": true,
+      "backup_debounce_minutes": 5,
+      "backup_daily_check_hours": 24,
+      "backup_retention_count": 10,
+      "backup_stale_warning_days": 7
+    }
+  },
+  "notifications": {
+    "engine": "flutter_local_notifications dengan zonedSchedule + timezone (Asia/Makassar). Notifikasi lokal, tidak butuh internet atau server push.",
+    "types": [
+      {
+        "id": "daily_log_reminder",
+        "text": "Sudah catat pengeluaran hari ini?",
+        "schedule": "Harian pada settings.daily_reminder_time"
+      },
+      {
+        "id": "subscription_due",
+        "text": "{nama} jatuh tempo {n} hari lagi. Pastikan amplop Tagihan cukup!",
+        "schedule": "H-3 dan H-0 dari nextDueDate setiap langganan",
+        "reschedule_rule": "Jadwalkan ulang setiap kali langganan dibuat, diubah, dibayar, atau next_due_date bergeser, dan setiap aplikasi dibuka serta setelah restore. Pakai notification_seq untuk membatalkan notifikasi lama."
+      },
+      {
+        "id": "buffer_released",
+        "text": "Bantalan bulan ini cair: Rp {amount}. Jangan lupa bagi ke amplop.",
+        "schedule": "Tanggal 1 pukul 08:00 WITA (hanya jika ada bufferEntries yang dijadwalkan)"
+      },
+      {
+        "id": "backup_stale",
+        "text": "Data kamu belum di-backup {n} hari. Buka aplikasi untuk backup.",
+        "schedule": "Satu kali jika backup terakhir lebih lama dari backup_stale_warning_days; dijadwalkan ulang setiap backup berhasil."
+      }
+    ],
+    "permission": "Minta izin POST_NOTIFICATIONS (Android 13+) saat onboarding, jelaskan alasannya. Aplikasi tetap berfungsi jika ditolak. Jadwalkan ulang semua notifikasi setiap aplikasi dibuka."
+  },
+  "user_flows": [
+    {
+      "id": "UF-01",
+      "name": "Feast: Menerima rezeki nomplok",
+      "steps": [
+        "Pengguna menyelesaikan project dan dibayar Rp 3.000.000.",
+        "Tekan ➕ lalu pilih Uang Masuk, isi nominal dan sumber.",
+        "Uang masuk ke Unassigned Funds.",
+        "Karena nominal >= buffer_suggestion_min_income, aplikasi menyarankan: 'Project cair! Amankan Rp 1.000.000 untuk gaji bulan depanmu?'",
+        "Pengguna setuju. Rp 1.000.000 menjadi bufferEntry berstatus 'held' untuk bulan depan.",
+        "Sisa Rp 2.000.000 dibagi ke Makan, Transport, Tagihan VPS, dan Target Beli Laptop sampai Unassigned Funds = Rp 0.",
+        "Beranda berubah hijau: 'Aman untuk 60 Hari'."
+      ]
+    },
+    {
+      "id": "UF-02",
+      "name": "Impulse Test: Godaan jajan dadakan",
+      "steps": [
+        "Pengguna tergiur promo kopi susu Rp 30.000 di aplikasi ojek online.",
+        "Membuka aplikasi untuk cek sisa jatah Wants.",
+        "Mencoba input Rp 30.000 dengan amplop Wants.",
+        "Kalkulator Keringat muncul: 'Peringatan! Beli kopi ini akan mengorbankan 1 Hari daya tahan hidupmu. Yakin?'",
+        "Pengguna membatalkan. Transaksi tidak disimpan, event 'resisted_purchase' dicatat.",
+        "Streak Puasa Jajan 🔥 bertambah di Beranda."
+      ]
+    },
+    {
+      "id": "UF-03",
+      "name": "Famine: Menghadapi siklus sepi",
+      "steps": [
+        "Bulan berikutnya tidak ada project.",
+        "Tanggal 1, aplikasi dibuka dan mencairkan Bantalan Rp 1.000.000 ke Unassigned Funds (idempoten).",
+        "Health Bar turun ke kuning: 'Aman untuk 25 Hari'.",
+        "Tagihan wajib bulan ini tetap tertutup karena bantalan, pengguna tidak panik."
+      ]
+    },
+    {
+      "id": "UF-04",
+      "name": "Pending income",
+      "steps": [
+        "Klien menjanjikan Rp 1.500.000 tapi belum transfer.",
+        "Pengguna mencatat Uang di Jalan.",
+        "Beranda menampilkan 'Ada Rp 1.500.000 menunggu cair.' Runway tidak berubah.",
+        "Saat uang cair, pengguna menandai 'sudah cair' dan alur Uang Masuk berjalan otomatis (masuk ke Unassigned Funds)."
+      ]
+    },
+    {
+      "id": "UF-05",
+      "name": "Radar Langganan",
+      "steps": [
+        "Pengguna menambah langganan 'VPS Hostinger' Rp 150.000, jatuh tempo tanggal 12, sumber amplop Tagihan.",
+        "Tanggal 9, notifikasi lokal dan peringatan merah di Kolam Alokasi muncul.",
+        "Jika saldo amplop Tagihan kurang dari Rp 150.000, peringatan menyarankan memindahkan uang."
+      ]
+    },
+    {
+      "id": "UF-06",
+      "name": "Investasi (v1.5)",
+      "steps": [
+        "Runway > 30 hari dan Dana Darurat sudah terpenuhi.",
+        "Saat project cair, aplikasi menyarankan: 'Runway aman, mau sisihkan Rp 300.000 untuk investasi?'",
+        "Pengguna mengalokasikan ke amplop Bayar Diri Sendiri, lalu mencatat 'Setor ke Investasi' ke aset tertentu.",
+        "Seminggu sekali pengguna memperbarui nilai aset secara manual. Net worth ikut berubah, runway tidak."
+      ]
+    },
+    {
+      "id": "UF-07",
+      "name": "HP hilang: pulihkan di HP baru",
+      "steps": [
+        "Pengguna memasang aplikasi di HP baru dan membuka Onboarding.",
+        "Memilih 'Pulihkan dari backup' lalu login dengan akun Google yang sama.",
+        "Aplikasi menampilkan daftar backup dari appDataFolder (default: terbaru).",
+        "Pengguna memilih dan mengonfirmasi. Aplikasi mengunduh, memvalidasi (integrity_check, schema_version), lalu mengganti database.",
+        "Aplikasi menjadwalkan ulang notifikasi dan menjalankan pengecekan pencairan Bantalan.",
+        "Beranda tampil dengan data terakhir yang ter-backup."
+      ]
+    },
+    {
+      "id": "UF-08",
+      "name": "Backup otomatis harian",
+      "steps": [
+        "Pengguna mencatat transaksi. Aplikasi menandai backup_dirty_since.",
+        "5 menit setelah perubahan terakhir dan jika online, service backup membuat snapshot, mengompres, dan mengunggah.",
+        "Backup lama melebihi backup_retention_count dihapus.",
+        "Status 'Backup terakhir: hari ini 14:32' tampil di Pengaturan."
+      ]
+    }
+  ],
+  "onboarding": {
+    "version": "v1",
+    "first_screen": "Pilihan: 'Mulai baru' atau 'Pulihkan dari backup'.",
+    "steps_new_user": [
+      "Sambutan singkat tentang konsep Survival First.",
+      "Minta saldo awal dan catat sebagai Uang Masuk awal ke Unassigned Funds.",
+      "Pilih amplop default Needs dan Wants (bisa diubah).",
+      "Opsional: tambah langganan rutin pertama.",
+      "Minta izin notifikasi (Android 13+).",
+      "Ajak hubungkan Google Drive untuk backup (boleh dilewati, tetapi banner pengingat akan muncul)."
+    ],
+    "steps_restore": [
+      "Login Google",
+      "Pilih backup",
+      "Konfirmasi",
+      "Selesai, langsung ke Beranda"
+    ],
+    "note": "Jangan menanyakan gaji bulanan."
+  },
+  "edge_cases": [
+    "Pengguna baru tanpa data: runway tampil 'Belum ada data', bukan 0 atau error.",
+    "Pengeluaran 0 selama 30 hari: hindari pembagian dengan nol.",
+    "Aplikasi tidak dibuka beberapa bulan: Bantalan dicairkan berurutan dan streak dievaluasi untuk hari-hari yang terlewat.",
+    "Perangkat berganti zona waktu: tetap gunakan Asia/Makassar untuk batas hari dan bulan.",
+    "Transaksi dihapus atau diedit: hitung ulang runway dan streak.",
+    "Tanpa internet: pencatatan transaksi tetap normal (database lokal). Backup ditandai 'menunggu' dan dicoba saat online.",
+    "HP hilang sebelum backup terakhir sempat terunggah: data setelah backup terakhir hilang. Banner dan status backup harus membuat risiko ini terlihat.",
+    "Login Google dibatalkan atau token kedaluwarsa: aplikasi tetap berfungsi, status backup menjadi 'perlu login ulang'.",
+    "Backup dengan schema_version lebih baru: tolak dengan pesan 'perbarui aplikasi dulu'.",
+    "File backup rusak atau gagal integrity_check: jangan timpa database lokal; tampilkan error dan tawarkan backup lain.",
+    "Aplikasi dimatikan paksa saat menulis: SQLite transaction menjamin data tidak setengah tersimpan.",
+    "Migrasi skema gagal: pulihkan dari salinan pengaman lokal (BR-17).",
+    "Restore ke HP yang sudah berisi data: wajib konfirmasi dan buat salinan pengaman lokal (BR-14).",
+    "Jam/zona waktu perangkat diubah: batas hari dan bulan tetap memakai Asia/Makassar.",
+    "Pengguna menghapus data aplikasi atau uninstall: data lokal hilang; pemulihan hanya lewat backup."
+  ],
+  "roadmap": {
+    "v1": {
+      "name": "Fondasi Survival",
+      "scope": [
+        "F-01",
+        "F-02",
+        "F-03",
+        "F-04",
+        "F-05",
+        "F-06",
+        "F-07",
+        "F-08",
+        "F-09",
+        "F-10",
+        "F-11",
+        "F-19",
+        "F-20"
+      ],
+      "note": "Di Tab Target, sediakan placeholder untuk Portofolio & Aset (v1.5). Backup (F-19) harus selesai dan DIUJI RESTORE sebelum pengguna memasukkan data keuangan nyata."
+    },
+    "v1_5": {
+      "name": "Growth: Investasi & Aset",
+      "scope": [
+        "F-13",
+        "F-14",
+        "F-15",
+        "F-16",
+        "F-17",
+        "F-18"
+      ],
+      "constraint": "Input nilai manual. Tanpa API harga."
+    },
+    "future_ideas": [
+      "Integrasi harga otomatis saham/kripto/emas lewat API",
+      "Pencatatan utang (liabilities) untuk net worth lengkap",
+      "Ekspor CSV",
+      "Widget layar utama menampilkan runway",
+      "Enkripsi backup dengan passphrase",
+      "Backup latar belakang terjadwal (WorkManager)",
+      "Sinkron multi-perangkat lewat server (mis. Supabase) bila dibutuhkan",
+      "Dukungan iOS",
+      "OTA update lewat Shorebird"
+    ]
+  },
+  "out_of_scope": [
+    "Firebase / Firestore (diputuskan tidak dipakai)",
+    "Backend server terpisah",
+    "Sinkron real-time multi-perangkat",
+    "Integrasi API harga saham/kripto (ditunda)",
+    "Koneksi ke rekening bank atau e-wallet",
+    "Fitur sosial atau berbagi antar pengguna",
+    "Dukungan multi-mata uang",
+    "iOS (ditunda sampai Android stabil)",
+    "React Native/Expo (tidak dipakai)"
+  ],
+  "open_decisions": [
+    {
+      "id": "OD-01",
+      "question": "Rumus runway: pakai rata-rata pengeluaran semua kategori (Needs + Wants) atau hanya Needs?",
+      "default_for_now": "Semua pengeluaran (runway_mode = all_spending). Sediakan setting agar mudah diganti ke 'needs_only'.",
+      "impact": "Angka di Health Bar dan Kalkulator Keringat."
+    },
+    {
+      "id": "OD-02",
+      "question": "Batas warna Health Bar yang final.",
+      "default_for_now": "Merah < 15 hari, kuning 15-30, hijau > 30.",
+      "impact": "Warna dan pesan Beranda."
+    },
+    {
+      "id": "OD-03",
+      "question": "[SELESAI] Apakah memakai Firebase Auth? Keputusan: Firebase tidak dipakai. Identitas pengguna hanya akun Google untuk backup.",
+      "default_for_now": "Tidak ada login aplikasi. Akun Google hanya untuk backup Drive.",
+      "impact": "Tidak ada."
+    },
+    {
+      "id": "OD-04",
+      "question": "Apakah Dana Darurat dihitung dalam runway?",
+      "default_for_now": "Tidak (include_emergency_fund_in_runway = false).",
+      "impact": "Angka runway."
+    },
+    {
+      "id": "OD-05",
+      "question": "Nama final aplikasi.",
+      "default_for_now": "Runway Finance",
+      "impact": "Branding saja."
+    },
+    {
+      "id": "OD-06",
+      "question": "Apakah memakai Shorebird untuk OTA update, atau cukup build dan install APK manual?",
+      "default_for_now": "Install APK manual. Evaluasi Shorebird setelah v1 jalan (cek harga dan batasannya dulu).",
+      "impact": "Cara mengirim perbaikan bug ke HP sendiri."
+    },
+    {
+      "id": "OD-07",
+      "question": "Apakah saldo amplop 'Bayar Diri Sendiri' dihitung dalam runway?",
+      "default_for_now": "Tidak.",
+      "impact": "Angka runway saat v1.5."
+    },
+    {
+      "id": "OD-08",
+      "question": "Apakah backup dienkripsi dengan passphrase?",
+      "default_for_now": "Tidak di v1 (appDataFolder privat untuk aplikasi ini). Pertimbangkan di versi berikutnya.",
+      "impact": "Privasi data di Drive; risiko lupa passphrase = backup tak bisa dibuka."
+    },
+    {
+      "id": "OD-09",
+      "question": "Apakah backup perlu berjalan di latar belakang terjadwal (WorkManager) agar tidak bergantung pada aplikasi dibuka?",
+      "default_for_now": "Tidak di v1. Backup saat perubahan (debounce), saat dibuka, dan best-effort saat masuk background.",
+      "impact": "Celah kehilangan data jika HP hilang tepat setelah mencatat transaksi."
+    }
+  ],
+  "instructions_for_ai_coder": [
+    "Baca seluruh dokumen ini sebelum menulis kode. Struktur folder: docs/PROJECT_STRUCTURE.md. Aturan kerja: AGENTS.md. Setup Google Cloud untuk backup: docs/BACKUP_SETUP.md.",
+    "Gaya visual mengikuti docs/DESIGN_SYSTEM.md (neo-brutalism). Pakai token dan komponen Brutal*; jangan hardcode warna.",
+    "Kerjakan hanya fitur dengan version 'v1' kecuali diminta lain. Jangan membangun fitur v1.5 lebih dulu.",
+    "Database = Drift (SQLite). JANGAN menambah Firebase, Firestore, atau backend apa pun.",
+    "Pisahkan logika bisnis menjadi fungsi Dart murni di lib/domain/ (runway, streak, buffer, pacing, sweat_calculator). Lapisan ini tidak boleh import flutter, drift, atau google_sign_in.",
+    "Tulis unit test untuk semua rumus di 'formulas', termasuk edge case. Test repository memakai database in-memory.",
+    "Saldo selalu diturunkan dari transaksi (BR-02), tidak disimpan di kolom.",
+    "Semua operasi multi-tulis memakai db.transaction(). Pencairan Bantalan wajib idempoten (BR-09).",
+    "Simpan uang sebagai int Rupiah. Jangan pernah memakai double. Fokus Android.",
+    "Gunakan zona waktu Asia/Makassar dan simpan local_date saat menulis transaksi.",
+    "Setiap perubahan skema wajib menaikkan schemaVersion, menulis migrasi, dan test migrasi.",
+    "Backup tidak boleh memblokir UI. Hanya minta scope drive.appdata.",
+    "Jalankan 'flutter analyze' dan 'flutter test' sebelum menyatakan tugas selesai.",
+    "Jika ada yang ambigu atau bertabrakan dengan dokumen ini, tanyakan ke pemilik proyek. Untuk 'open_decisions' pakai default_for_now dan jadikan konfigurasi, bukan hardcode.",
+    "Teks antarmuka berbahasa Indonesia dengan nada santai dan jujur."
+  ],
+  "design": {
+    "source_of_truth": "docs/DESIGN_SYSTEM.md",
+    "style": "neo-brutalism",
+    "theme_mode_v1": "light_only",
+    "tokens": {
+      "colors": {
+        "ink": "#111111",
+        "canvas": "#F5F0E6",
+        "paper": "#FFFFFF",
+        "safe": "#5BE584",
+        "warn": "#FFD43B",
+        "danger": "#FF5C5C",
+        "needs": "#74B9FF",
+        "wants": "#FF9EDB",
+        "buffer": "#B197FC",
+        "goal": "#FFA94D",
+        "muted": "#4A4A4A",
+        "disabled": "#D9D4C7"
+      },
+      "fonts": {
+        "ui": "Space Grotesk",
+        "numbers": "Space Mono",
+        "bundled_in_assets": true
+      },
+      "borders": {
+        "thin": 2,
+        "base": 3,
+        "heavy": 4
+      },
+      "hard_shadow_offsets": {
+        "sm": 3,
+        "md": 5,
+        "lg": 8
+      },
+      "radius": 0,
+      "spacing": [
+        4,
+        8,
+        12,
+        16,
+        24,
+        32
+      ],
+      "min_touch_target_dp": 48
+    },
+    "rules": [
+      "Teks di atas warna jenuh selalu 'ink'.",
+      "Status tidak boleh hanya warna; selalu ada teks dan ikon.",
+      "Tidak ada hardcode warna/ukuran di widget fitur; pakai brutal_tokens.dart.",
+      "Tidak memakai elevation Material; bayangan keras (blur 0) lewat BoxDecoration.",
+      "Gunakan komponen Brutal* di lib/shared/widgets/brutal/."
+    ],
+    "health_bar_status_map": {
+      "safe": "AMAN",
+      "warn": "WASPADA",
+      "danger": "BAHAYA",
+      "no_data": "BELUM ADA DATA"
+    }
+  },
+  "screens_proposed_by_design": {
+    "status": "diusulkan, menunggu persetujuan pemilik. Jangan dibangun sebelum disetujui.",
+    "screens": [
+      {
+        "id": "TransactionHistoryScreen",
+        "version": "v1",
+        "purpose": "Daftar semua transaksi dengan filter; edit dan hapus (soft delete) sesuai BR-10."
+      },
+      {
+        "id": "EnvelopeDetailScreen",
+        "version": "v1",
+        "purpose": "Saldo amplop, riwayat transaksi amplop, ubah nama/ikon, arsipkan."
+      },
+      {
+        "id": "PendingIncomeListScreen",
+        "version": "v1",
+        "purpose": "Daftar uang di jalan; tandai 'sudah cair' atau batalkan."
+      },
+      {
+        "id": "DesignGalleryScreen",
+        "version": "v1 (debug only)",
+        "purpose": "Melihat semua komponen Brutal* saat pengembangan (kDebugMode)."
+      }
+    ]
+  }
+}
