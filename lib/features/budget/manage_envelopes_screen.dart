@@ -7,6 +7,7 @@ import 'package:runway_finance/domain/entities/envelope_entity.dart';
 import 'package:runway_finance/providers/repository_providers.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class ManageEnvelopesScreen extends ConsumerStatefulWidget {
   const ManageEnvelopesScreen({super.key});
@@ -576,8 +577,11 @@ class _ManageEnvelopesScreenState extends ConsumerState<ManageEnvelopesScreen> {
               await envelopeRepo.deleteEnvelope(envelope.id);
               if (ctx.mounted) {
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('✓ Amplop "${envelope.name}" berhasil dihapus.')),
+                BrutalToast.showSuccess(
+                  context,
+                  title: 'POS DIBERSIHKAN',
+                  message: 'Amplop pos "${envelope.name}" berhasil dihapus.',
+                  pushToSystem: true,
                 );
               }
             },

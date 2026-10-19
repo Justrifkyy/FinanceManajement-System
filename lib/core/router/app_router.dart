@@ -7,16 +7,18 @@ import '../../features/budget/manage_envelopes_screen.dart';
 import '../../features/budget/subscriptions_screen.dart';
 import '../../features/future/future_screen.dart';
 import '../../features/future/portfolio_screen.dart';
+import '../../features/history/history_screen.dart';
 import '../../features/home/fasting_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/settings/profile_screen.dart';
 import '../../features/shell/main_shell.dart';
+import '../../features/splash/splash_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/home',
+  initialLocation: '/splash',
   routes: [
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
@@ -96,6 +98,16 @@ final appRouter = GoRouter(
       path: '/backup',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const BackupRestoreScreen(),
+    ),
+    GoRoute(
+      path: '/splash',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/history',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const HistoryScreen(),
     ),
   ],
 );

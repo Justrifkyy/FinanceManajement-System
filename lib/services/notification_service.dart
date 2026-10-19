@@ -167,6 +167,45 @@ class NotificationService {
     );
   }
 
+  /// Kirim notifikasi aksi seketika (misal: berhasil input uang, penarikan, atau kesalahan input)
+  Future<void> showActionNotification({
+    required String title,
+    required String body,
+    bool isError = false,
+  }) async {
+    final notifId = 400 + (DateTime.now().millisecondsSinceEpoch % 100);
+    await showNotification(
+      id: notifId,
+      title: title,
+      body: body,
+    );
+  }
+
+  /// Notifikasi transaksi / gerak uang selesai dicatat
+  Future<void> showTransactionRecordedNotification({
+    required String type, // 'KELUAR', 'MASUK', 'HEMAT'
+    required int amount,
+    required String category,
+  }) async {
+    final formatted = MoneyFormatter.format(amount);
+    if (type == 'KELUAR') {
+      await showActionNotification(
+        title: '💸 Pengeluaran Dicatat: -$formatted',
+        body: 'Pos: $category. Runway & buku besar lokal telah disesuaikan.',
+      );
+    } else if (type == 'MASUK') {
+      await showActionNotification(
+        title: '💰 Pemasukan Berhasil Ditambahkan: +$formatted',
+        body: 'Sumber: $category. Daya tahan runway hidupmu meningkat!',
+      );
+    } else if (type == 'HEMAT') {
+      await showActionNotification(
+        title: '🔥 Disiplin Finansial: $formatted Diselamatkan!',
+        body: 'Kamu berhasil menahan godaan jajan impulsif. Disiplin terus bertumbuh!',
+      );
+    }
+  }
+
   /// Kirim notifikasi motivasi berhemat acak seketika (untuk tes atau pengingat spontan)
   Future<void> showRandomFrugalMotivation() async {
     final quote = getRandomQuote();

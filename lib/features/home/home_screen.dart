@@ -15,6 +15,7 @@ import 'package:runway_finance/shared/widgets/brutal/hazard_stripes.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/segment_bar.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -130,6 +131,69 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 );
               },
+            ),
+
+            // Riwayat Transaksi Banner
+            GestureDetector(
+              onTap: () => context.push('/history'),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: BrutalTokens.warn,
+                  border: Border.all(
+                    color: BrutalTokens.ink,
+                    width: BrutalTokens.borderBase,
+                  ),
+                  boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: BrutalTokens.paper,
+                        border: Border.all(
+                          color: BrutalTokens.ink,
+                          width: BrutalTokens.borderThin,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('📜', style: TextStyle(fontSize: 22)),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Stamp(text: 'BUKU BESAR LENGKAP', backgroundColor: BrutalTokens.paper),
+                          SizedBox(height: 4),
+                          Text(
+                            'RIWAYAT TRANSAKSI',
+                            style: TextStyle(
+                              fontFamily: BrutalTokens.fontUi,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                              color: BrutalTokens.ink,
+                            ),
+                          ),
+                          Text(
+                            'Pantau histori pengeluaran, pemasukan & deskripsi',
+                            style: TextStyle(
+                              fontFamily: BrutalTokens.fontUi,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: BrutalTokens.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward, size: 22, color: BrutalTokens.ink),
+                  ],
+                ),
+              ),
             ),
 
             // Section Title: Puasa Jajan
@@ -673,10 +737,11 @@ class HomeScreen extends ConsumerWidget {
                                 );
                                 if (ctx.mounted) {
                                   Navigator.of(ctx).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('✓ Rp ${MoneyFormatter.formatWithoutSymbol(item.amount)} berhasil dicairkan ke Kas!'),
-                                    ),
+                                  BrutalToast.showSuccess(
+                                    context,
+                                    title: 'UANG DI JALAN DICAIRKAN',
+                                    message: 'Rp ${MoneyFormatter.formatWithoutSymbol(item.amount)} berhasil masuk ke Kas Bebas!',
+                                    pushToSystem: true,
                                   );
                                 }
                               },

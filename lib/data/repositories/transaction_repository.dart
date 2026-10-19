@@ -155,6 +155,10 @@ class TransactionRepository {
     return _transactionDao.watchTotalResistedAmount();
   }
 
+  Stream<List<ResistedEventsTableData>> watchAllResistedEvents() {
+    return _transactionDao.watchAllResistedEvents();
+  }
+
   static TransactionEntity _mapToEntity(TransactionsTableData row) {
     return TransactionEntity(
       id: row.id,

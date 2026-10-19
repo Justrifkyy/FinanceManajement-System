@@ -41,6 +41,11 @@ class DateHelper {
     return toLocalDateString(DateTime.now());
   }
 
+  /// Mendapatkan tanggal kemarin dalam format 'YYYY-MM-DD' WITA
+  static String yesterdayLocalDateString() {
+    return toLocalDateString(DateTime.now().subtract(const Duration(days: 1)));
+  }
+
   /// Awal hari (00:00:00) waktu WITA untuk tanggal tertentu
   static DateTime startOfDay(DateTime dt) {
     final makassar = toMakassarTime(dt);

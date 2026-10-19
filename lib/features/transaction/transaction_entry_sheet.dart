@@ -13,6 +13,7 @@ import 'package:runway_finance/domain/sweat_calculator.dart';
 import 'package:runway_finance/providers/repository_providers.dart';
 import 'package:runway_finance/providers/runway_provider.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class TransactionEntrySheet extends ConsumerStatefulWidget {
   const TransactionEntrySheet({super.key});
@@ -27,11 +28,13 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
   String? _selectedEnvelopeId;
   String _incomeDestinationId = 'unassigned'; // 'unassigned', 'buffer', or envelope ID
   final TextEditingController _clientController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
     _clientController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -62,8 +65,11 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
   Future<void> _handleSave() async {
     final amount = int.tryParse(_rawAmount) ?? 0;
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.errorEmptyAmount)),
+      BrutalToast.showError(
+        context,
+        title: 'NOMINAL BELUM DIISI',
+        message: 'Masukkan nominal rupiah lebih dari 0 sebelum menyimpan gerak uang!',
+        pushToSystem: true,
       );
       return;
     }
@@ -159,22 +165,11 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
 
             if (mounted) {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  backgroundColor: BrutalTokens.safe,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BrutalTokens.radiusZero),
-                  content: Text(
-                    '🔥 HEBAT! Kamu menahan diri. Puasa jajan berlanjut!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: BrutalTokens.fontUi,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: BrutalTokens.ink,
-                    ),
-                  ),
-                ),
+              BrutalToast.showSuccess(
+                context,
+                title: 'DISIPLIN PUASA JAJAN!',
+                message: '🔥 HEBAT! Kamu menahan diri. Saldo Rp ${MoneyFormatter.formatWithoutSymbol(amount)} berhasil diamankan ke runway!',
+                pushToSystem: true,
               );
             }
             return;
@@ -184,6 +179,7 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
 
       setState(() => _isLoading = true);
       try {
+        final userNote = _noteController.text.trim();
         await transactionRepo.recordTransaction(
           id: IdGenerator.nextId(),
           type: TransactionType.expense,
@@ -192,9 +188,10 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
           localDate: localDate,
           fromEnvelopeId: targetEnvId,
           countsAsSpending: true,
+          note: userNote.isNotEmpty ? userNote : null,
         );
 
-        _onSuccess('✓ PENGELUARAN TERCATAT');
+        _onSuccess(userNote.isNotEmpty ? '✓ KELUAR: $userNote' : '✓ PENGELUARAN TERCATAT');
       } catch (e) {
         _onError(e);
       } finally {
@@ -207,6 +204,12 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
     if (_selectedSegment == 'MASUK') {
       setState(() => _isLoading = true);
       try {
+        final userNote = _noteController.text.trim();
+        final defaultNote = _incomeDestinationId == 'buffer'
+            ? 'Bantalan Bulan Depan'
+            : (_incomeDestinationId == 'unassigned' ? 'Pemasukan Kas' : 'Pemasukan Pos');
+        final finalNote = userNote.isNotEmpty ? userNote : defaultNote;
+
         if (_incomeDestinationId == 'buffer') {
           // Masuk ke Bantalan Bulan Depan: simpan transaksi & buffer entry
           final bufferEntryId = IdGenerator.nextId();
@@ -222,7 +225,7 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
             localDate: localDate,
             toEnvelopeId: 'buffer',
             bufferEntryId: bufferEntryId,
-            note: 'Pemasukan Bantalan Bulan Depan',
+            note: finalNote,
           );
 
           await bufferDao.insertBufferEntry(
@@ -243,11 +246,11 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
             occurredAt: now,
             localDate: localDate,
             toEnvelopeId: _incomeDestinationId,
-            note: _incomeDestinationId == 'unassigned' ? 'Pemasukan Kas' : 'Pemasukan Pos',
+            note: finalNote,
           );
         }
 
-        _onSuccess('✓ PEMASUKAN TERCATAT');
+        _onSuccess(userNote.isNotEmpty ? '✓ MASUK: $userNote' : '✓ PEMASUKAN TERCATAT');
       } catch (e) {
         _onError(e);
       } finally {
@@ -283,31 +286,22 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
   void _onSuccess(String message) {
     if (mounted) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: BrutalTokens.safe,
-          behavior: SnackBarBehavior.floating,
-          shape: const RoundedRectangleBorder(borderRadius: BrutalTokens.radiusZero),
-          content: Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: BrutalTokens.fontUi,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: BrutalTokens.ink,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ),
+      BrutalToast.showSuccess(
+        context,
+        title: 'GERAK UANG TERCATAT!',
+        message: message,
+        pushToSystem: true,
       );
     }
   }
 
   void _onError(Object e) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan: $e')),
+      BrutalToast.showError(
+        context,
+        title: 'GAGAL MENYIMPAN TRANSAKSI',
+        message: 'Terjadi kesalahan sistem: $e',
+        pushToSystem: true,
       );
     }
   }
@@ -682,6 +676,53 @@ class _TransactionEntrySheetState extends ConsumerState<TransactionEntrySheet> {
                         color: BrutalTokens.muted,
                       ),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              // Input Deskripsi / Catatan Opsional (untuk KELUAR dan MASUK)
+              if (_selectedSegment == 'KELUAR' || _selectedSegment == 'MASUK') ...[
+                const Text(
+                  'DESKRIPSI / CATATAN (OPSIONAL)',
+                  style: TextStyle(
+                    fontFamily: BrutalTokens.fontUi,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                    color: BrutalTokens.ink,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    color: BrutalTokens.paper,
+                    border: Border.all(
+                      color: BrutalTokens.ink,
+                      width: BrutalTokens.borderThin,
+                    ),
+                    boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowSm),
+                  ),
+                  child: TextField(
+                    controller: _noteController,
+                    style: const TextStyle(
+                      fontFamily: BrutalTokens.fontUi,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: BrutalTokens.ink,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _selectedSegment == 'KELUAR'
+                          ? 'Contoh: membeli permen kapas, ngopi, bensin...'
+                          : 'Contoh: bonus proyek, freelance, transferan...',
+                      hintStyle: const TextStyle(
+                        fontFamily: BrutalTokens.fontUi,
+                        fontSize: 12,
+                        color: BrutalTokens.muted,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       border: InputBorder.none,
                     ),
                   ),

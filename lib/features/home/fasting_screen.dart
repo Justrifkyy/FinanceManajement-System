@@ -1,19 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:runway_finance/core/theme/brutal_tokens.dart';
 import 'package:runway_finance/core/utils/date_helper.dart';
+import 'package:runway_finance/core/utils/id_generator.dart';
 import 'package:runway_finance/core/utils/money_formatter.dart';
+import 'package:runway_finance/data/database/app_database.dart';
 import 'package:runway_finance/providers/repository_providers.dart';
 import 'package:runway_finance/providers/streak_provider.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
 
-class FastingScreen extends ConsumerWidget {
+class FastingScreen extends ConsumerStatefulWidget {
   const FastingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FastingScreen> createState() => _FastingScreenState();
+}
+
+class _FastingScreenState extends ConsumerState<FastingScreen> {
+  @override
+  Widget build(BuildContext context) {
     final streakAsync = ref.watch(streakProvider);
     final txRepo = ref.watch(transactionRepositoryProvider);
 
@@ -34,7 +45,7 @@ class FastingScreen extends ConsumerWidget {
               onBack: () => context.pop(),
             ),
 
-            // Fasting Hero Card
+            // 1. Fasting Hero Card (Streak Aktif)
             streakAsync.when(
               data: (streak) => Container(
                 padding: const EdgeInsets.all(16),
@@ -105,12 +116,22 @@ class FastingScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator(color: BrutalTokens.ink)),
               error: (_, _) => const SizedBox.shrink(),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Streak Metrics (2 boxes)
+            // Tombol Aksi: Catat Godaan yang Berhasil Ditahan
+            BrutalButton(
+              text: '🔥 CATAT GODAAN DITAHAN (HEMAT)',
+              variant: BrutalButtonVariant.safe,
+              isFullWidth: true,
+              icon: const Icon(Icons.shield_outlined, size: 20, color: BrutalTokens.ink),
+              onPressed: () => _showRecordResistedDialog(context, txRepo),
+            ),
+            const SizedBox(height: 16),
+
+            // 2. Streak Metrics (Rekor Terbaik & Total Diselamatkan)
             Container(
               decoration: BoxDecoration(
                 borderRadius: BrutalTokens.radiusZero,
@@ -166,7 +187,7 @@ class FastingScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'UANG DIHEMAT*',
+                                'UANG DIHEMAT',
                                 style: TextStyle(
                                   fontFamily: BrutalTokens.fontUi,
                                   fontSize: 9,
@@ -197,130 +218,16 @@ class FastingScreen extends ConsumerWidget {
 
             SectionTitle(title: monthName),
 
-            // Fasting Calendar
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: BrutalTokens.paper,
-                borderRadius: BrutalTokens.radiusZero,
-                border: Border.all(
-                  color: BrutalTokens.ink,
-                  width: BrutalTokens.borderBase,
-                ),
-                boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
-              ),
-              child: Column(
-                children: [
-                  // Weekday header
-                  Row(
-                    children: ['S', 'S', 'R', 'K', 'J', 'S', 'M'].map((day) {
-                      return Expanded(
-                        child: Center(
-                          child: Text(
-                            day,
-                            style: const TextStyle(
-                              fontFamily: BrutalTokens.fontUi,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: BrutalTokens.ink,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Calendar Grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      crossAxisSpacing: 5,
-                      mainAxisSpacing: 5,
-                      childAspectRatio: 0.95,
-                    ),
-                    itemCount: totalDaysInMonth,
-                    itemBuilder: (context, index) {
-                      final day = index + 1;
-                      final isFuture = day > currentDay;
-
-                      Color bg = isFuture ? BrutalTokens.disabled : BrutalTokens.safe;
-
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: bg,
-                          border: Border.all(
-                            color: BrutalTokens.ink,
-                            width: BrutalTokens.borderThin,
-                          ),
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Text(
-                              '$day',
-                              style: TextStyle(
-                                fontFamily: BrutalTokens.fontNumbers,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: isFuture ? BrutalTokens.disabledText : BrutalTokens.ink,
-                              ),
-                            ),
-                            if (!isFuture)
-                              const Positioned(
-                                right: 2,
-                                bottom: 0,
-                                child: Text(
-                                  '✓',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    color: BrutalTokens.ink,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Calendar Legend
-                  Row(
-                    children: [
-                      Row(
-                        children: [
-                          Container(width: 11, height: 11, color: BrutalTokens.safe, margin: const EdgeInsets.only(right: 5)),
-                          const Text('BERHASIL TAHAN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      Row(
-                        children: [
-                          Container(width: 11, height: 11, color: BrutalTokens.danger, margin: const EdgeInsets.only(right: 5)),
-                          const Text('JAJAN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SectionTitle(title: 'Momen kamu menang'),
-
-            // Resisted Card
-            StreamBuilder<int>(
-              stream: txRepo.watchResistedEventsCount(),
+            // 3. Fasting Calendar (Dihubungkan Dinamis ke Data Pengeluaran Wants)
+            FutureBuilder<Set<String>>(
+              future: txRepo.getWantsExpenseDates(),
               builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
+                final wantsDates = snapshot.data ?? {};
+
                 return Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: BrutalTokens.safe,
+                    color: BrutalTokens.paper,
                     borderRadius: BrutalTokens.radiusZero,
                     border: Border.all(
                       color: BrutalTokens.ink,
@@ -329,38 +236,243 @@ class FastingScreen extends ConsumerWidget {
                     boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
                   ),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Stamp(text: 'GAK JADI BELI', backgroundColor: BrutalTokens.paper),
-                      const SizedBox(height: 12),
-                      Text(
-                        count > 0 ? '$count kali berhasil menahan godaan' : 'Belum ada godaan yang ditahan',
-                        style: const TextStyle(
-                          fontFamily: BrutalTokens.fontUi,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: BrutalTokens.ink,
-                        ),
+                      // Weekday header
+                      Row(
+                        children: ['S', 'S', 'R', 'K', 'J', 'S', 'M'].map((day) {
+                          return Expanded(
+                            child: Center(
+                              child: Text(
+                                day,
+                                style: const TextStyle(
+                                  fontFamily: BrutalTokens.fontUi,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: BrutalTokens.ink,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        count > 0
-                            ? 'Setiap kali kamu menolak beli jajan, runway hidupmu bertambah.'
-                            : 'Pakai Kalkulator Keringat saat ingin membeli barang keinginan.',
-                        style: const TextStyle(
-                          fontFamily: BrutalTokens.fontUi,
-                          fontSize: 12,
-                          color: BrutalTokens.ink,
+                      const SizedBox(height: 8),
+
+                      // Calendar Grid
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          crossAxisSpacing: 5,
+                          mainAxisSpacing: 5,
+                          childAspectRatio: 0.95,
                         ),
+                        itemCount: totalDaysInMonth,
+                        itemBuilder: (context, index) {
+                          final day = index + 1;
+                          final isFuture = day > currentDay;
+                          final dateStr =
+                              '${now.year}-${now.month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+
+                          final hadWants = wantsDates.contains(dateStr);
+
+                          Color bg;
+                          if (isFuture) {
+                            bg = BrutalTokens.disabled;
+                          } else if (hadWants) {
+                            bg = BrutalTokens.danger;
+                          } else {
+                            bg = BrutalTokens.safe;
+                          }
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: bg,
+                              border: Border.all(
+                                color: BrutalTokens.ink,
+                                width: BrutalTokens.borderThin,
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Text(
+                                  '$day',
+                                  style: TextStyle(
+                                    fontFamily: BrutalTokens.fontNumbers,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isFuture ? BrutalTokens.disabledText : BrutalTokens.ink,
+                                  ),
+                                ),
+                                if (!isFuture)
+                                  Positioned(
+                                    right: 2,
+                                    bottom: 0,
+                                    child: Text(
+                                      hadWants ? '✖' : '✓',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                        color: hadWants ? BrutalTokens.paper : BrutalTokens.ink,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Calendar Legend
+                      Row(
+                        children: [
+                          Row(
+                            children: [
+                              Container(width: 11, height: 11, color: BrutalTokens.safe, margin: const EdgeInsets.only(right: 5)),
+                              const Text('BERHASIL TAHAN', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          Row(
+                            children: [
+                              Container(width: 11, height: 11, color: BrutalTokens.danger, margin: const EdgeInsets.only(right: 5)),
+                              const Text('JAJAN KELUAR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 );
               },
             ),
+
+            const SectionTitle(title: 'Riwayat momen kamu menang'),
+
+            // 4. Daftar Momen Menang (Resisted Events Stream)
+            StreamBuilder<List<ResistedEventsTableData>>(
+              stream: txRepo.watchAllResistedEvents(),
+              builder: (context, snapshot) {
+                final events = snapshot.data ?? [];
+
+                if (events.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: BrutalTokens.safe,
+                      borderRadius: BrutalTokens.radiusZero,
+                      border: Border.all(
+                        color: BrutalTokens.ink,
+                        width: BrutalTokens.borderBase,
+                      ),
+                      boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Stamp(text: 'SIAP MULAI', backgroundColor: BrutalTokens.paper),
+                        SizedBox(height: 12),
+                        Text(
+                          'Belum ada godaan yang dicatat',
+                          style: TextStyle(
+                            fontFamily: BrutalTokens.fontUi,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: BrutalTokens.ink,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Saat ada keinginan jajan impulsif dan kamu berhasil menahan diri, ketuk tombol di atas untuk mencatat kemenanganmu!',
+                          style: TextStyle(
+                            fontFamily: BrutalTokens.fontUi,
+                            fontSize: 12,
+                            color: BrutalTokens.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: events.take(15).map((ev) {
+                    final timeStr = DateFormat('dd MMM yyyy · HH:mm').format(ev.occurredAt.toLocal());
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: BrutalTokens.paper,
+                        border: Border.all(
+                          color: BrutalTokens.ink,
+                          width: BrutalTokens.borderThin,
+                        ),
+                        boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowSm),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: BrutalTokens.safe,
+                              border: Border.all(
+                                color: BrutalTokens.ink,
+                                width: BrutalTokens.borderThin,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text('🔥', style: TextStyle(fontSize: 18)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'BERHASIL TAHAN GODAAN',
+                                  style: TextStyle(
+                                    fontFamily: BrutalTokens.fontUi,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                    color: BrutalTokens.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$timeStr WITA',
+                                  style: const TextStyle(
+                                    fontFamily: BrutalTokens.fontNumbers,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: BrutalTokens.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '+${MoneyFormatter.format(ev.amount)}',
+                            style: const TextStyle(
+                              fontFamily: BrutalTokens.fontNumbers,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: BrutalTokens.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
             const SizedBox(height: 14),
+
             const Text(
-              '*Estimasi dari transaksi yang kamu batalkan lewat Kalkulator Keringat.',
+              '*Setiap kali kamu menahan jajan impulsif, uang tersebut tetap berada di kas dan memperpanjang hari hidup di Runway.',
               style: TextStyle(
                 fontFamily: BrutalTokens.fontUi,
                 fontSize: 10,
@@ -370,6 +482,138 @@ class FastingScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showRecordResistedDialog(BuildContext context, dynamic txRepo) {
+    final amountController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: BrutalTokens.canvas,
+      shape: const RoundedRectangleBorder(borderRadius: BrutalTokens.radiusZero),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Stamp(text: 'CATAT KEMENANGAN', backgroundColor: BrutalTokens.safe),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: BrutalTokens.ink),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'Berapa yang berhasil kamu hemat?',
+                style: TextStyle(
+                  fontFamily: BrutalTokens.fontUi,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: BrutalTokens.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Masukkan estimasi harga jajan/keinginan yang batal kamu beli.',
+                style: TextStyle(
+                  fontFamily: BrutalTokens.fontUi,
+                  fontSize: 11,
+                  color: BrutalTokens.muted,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Input Nominal
+              Container(
+                decoration: BoxDecoration(
+                  color: BrutalTokens.paper,
+                  border: Border.all(
+                    color: BrutalTokens.ink,
+                    width: BrutalTokens.borderBase,
+                  ),
+                  boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowSm),
+                ),
+                child: TextField(
+                  controller: amountController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(
+                    fontFamily: BrutalTokens.fontNumbers,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: BrutalTokens.ink,
+                  ),
+                  decoration: const InputDecoration(
+                    prefixText: 'Rp ',
+                    prefixStyle: TextStyle(
+                      fontFamily: BrutalTokens.fontUi,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: BrutalTokens.ink,
+                    ),
+                    hintText: '35000',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              BrutalButton(
+                text: 'SIMPAN KEMENANGAN 🔥',
+                variant: BrutalButtonVariant.safe,
+                isFullWidth: true,
+                onPressed: () async {
+                  final amount = int.tryParse(amountController.text.trim()) ?? 0;
+                  if (amount <= 0) {
+                    BrutalToast.showError(
+                      context,
+                      title: 'NOMINAL TIDAK VALID',
+                      message: 'Masukkan nominal rupiah di atas 0!',
+                      pushToSystem: true,
+                    );
+                    return;
+                  }
+
+                  final now = DateTime.now();
+                  final localDate = DateHelper.todayLocalDateString();
+
+                  await txRepo.recordResistedEvent(
+                    id: IdGenerator.nextId(),
+                    amount: amount,
+                    occurredAt: now,
+                    localDate: localDate,
+                  );
+
+                  if (ctx.mounted) {
+                    Navigator.of(ctx).pop();
+                    BrutalToast.showSuccess(
+                      context,
+                      title: 'DISIPLIN PUASA JAJAN!',
+                      message:
+                          '🔥 HEBAT! Rp ${MoneyFormatter.formatWithoutSymbol(amount)} berhasil kamu selamatkan. Streak bertambah!',
+                      pushToSystem: true,
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

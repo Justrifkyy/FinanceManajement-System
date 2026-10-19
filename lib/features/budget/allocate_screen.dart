@@ -11,6 +11,7 @@ import 'package:runway_finance/providers/repository_providers.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class AllocateScreen extends ConsumerStatefulWidget {
   final String? initialEnvelopeId;
@@ -696,15 +697,21 @@ class _AllocateScreenState extends ConsumerState<AllocateScreen> {
                     );
                     if (ctx.mounted) {
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('✓ Berhasil mengalokasikan Rp ${MoneyFormatter.formatWithoutSymbol(amount)} ke ${envelope.name}!')),
+                      BrutalToast.showSuccess(
+                        context,
+                        title: 'ALOKASI POS BERHASIL',
+                        message: 'Rp ${MoneyFormatter.formatWithoutSymbol(amount)} dialokasikan ke pos "${envelope.name}".',
+                        pushToSystem: true,
                       );
                     }
                   } else if (mode == 'withdraw') {
                     // Pos -> Kas Belum Dialokasikan
                     if (amount > envelopeBalance) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Nominal penarikan melebihi saldo pos!')),
+                      BrutalToast.showError(
+                        context,
+                        title: 'NOMINAL MELEBIHI SALDO POS',
+                        message: 'Saldo pos "${envelope.name}" hanya Rp ${MoneyFormatter.formatWithoutSymbol(envelopeBalance)}.',
+                        pushToSystem: true,
                       );
                       return;
                     }
@@ -721,15 +728,21 @@ class _AllocateScreenState extends ConsumerState<AllocateScreen> {
                     );
                     if (ctx.mounted) {
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('✓ Berhasil menarik Rp ${MoneyFormatter.formatWithoutSymbol(amount)} dari ${envelope.name} ke kas!')),
+                      BrutalToast.showSuccess(
+                        context,
+                        title: 'PENARIKAN KE KAS BERHASIL',
+                        message: 'Rp ${MoneyFormatter.formatWithoutSymbol(amount)} dikembalikan dari "${envelope.name}" ke Kas Bebas.',
+                        pushToSystem: true,
                       );
                     }
                   } else if (mode == 'transfer' && destinationEnvelopeId != null) {
                     // Pos A -> Pos B
                     if (amount > envelopeBalance) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Nominal pemindahan melebihi saldo pos!')),
+                      BrutalToast.showError(
+                        context,
+                        title: 'NOMINAL MELEBIHI SALDO POS',
+                        message: 'Saldo pos "${envelope.name}" hanya Rp ${MoneyFormatter.formatWithoutSymbol(envelopeBalance)}.',
+                        pushToSystem: true,
                       );
                       return;
                     }
@@ -747,8 +760,11 @@ class _AllocateScreenState extends ConsumerState<AllocateScreen> {
                     );
                     if (ctx.mounted) {
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('✓ Berhasil memindahkan Rp ${MoneyFormatter.formatWithoutSymbol(amount)} ke ${destEnvelope.name}!')),
+                      BrutalToast.showSuccess(
+                        context,
+                        title: 'PEMINDAHAN ANTAR POS BERHASIL',
+                        message: 'Rp ${MoneyFormatter.formatWithoutSymbol(amount)} dipindahkan ke pos "${destEnvelope.name}".',
+                        pushToSystem: true,
                       );
                     }
                   }

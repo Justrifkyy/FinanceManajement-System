@@ -161,5 +161,12 @@ class TransactionDao extends DatabaseAccessor<AppDatabase> with _$TransactionDao
       return sum;
     });
   }
+
+  /// Watch seluruh riwayat momen berhasil menahan diri
+  Stream<List<ResistedEventsTableData>> watchAllResistedEvents() {
+    return (select(resistedEventsTable)
+          ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]))
+        .watch();
+  }
 }
 

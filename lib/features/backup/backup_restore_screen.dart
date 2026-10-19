@@ -10,6 +10,7 @@ import 'package:runway_finance/services/backup/drive_client.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class BackupRestoreScreen extends ConsumerStatefulWidget {
   const BackupRestoreScreen({super.key});
@@ -60,8 +61,11 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       final authService = ref.read(authServiceProvider);
       final user = await authService.signInWithGoogle();
       if (user != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✓ Berhasil masuk sebagai ${user.email}!')),
+        BrutalToast.showSuccess(
+          context,
+          title: 'TERHUBUNG KE GOOGLE',
+          message: 'Berhasil masuk sebagai ${user.email}. Cadangan dapat disinkronkan.',
+          pushToSystem: true,
         );
         await _loadBackups();
       }
@@ -202,20 +206,23 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
         await _loadBackups();
         if (mounted) {
           final sizeKb = (result.fileSizeBytes / 1024).toStringAsFixed(1);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result.driveFileId != null
-                    ? '✓ Berhasil dicadangkan ke Google Drive & Penyimpanan HP ($sizeKb KB)!'
-                    : '✓ Berhasil dicadangkan ke Penyimpanan HP ($sizeKb KB)!',
-              ),
-            ),
+          final destText = result.driveFileId != null
+              ? 'Google Drive & Penyimpanan HP ($sizeKb KB)'
+              : 'Penyimpanan HP ($sizeKb KB)';
+          BrutalToast.showSuccess(
+            context,
+            title: 'CADANGAN AMAN TERSIMPAN',
+            message: 'Data berhasil dicadangkan ke $destText.',
+            pushToSystem: true,
           );
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal mencadangkan: ${result.errorMessage}')),
+          BrutalToast.showError(
+            context,
+            title: 'GAGAL MENCADANGKAN',
+            message: result.errorMessage ?? 'Terjadi kendala saat menyimpan file.',
+            pushToSystem: true,
           );
         }
       }
@@ -240,8 +247,11 @@ class _BackupRestoreScreenState extends ConsumerState<BackupRestoreScreen> {
       await backupService.shareBackupFile();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membagikan cadangan: $e')),
+        BrutalToast.showError(
+          context,
+          title: 'GAGAL MEMBAGIKAN CADANGAN',
+          message: e.toString(),
+          pushToSystem: true,
         );
       }
     } finally {

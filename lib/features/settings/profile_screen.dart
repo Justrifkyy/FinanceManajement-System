@@ -14,6 +14,7 @@ import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_toggle.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -454,9 +455,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     onTap: () => context.push('/backup'),
                   ),
+                  // Row 4: Riwayat Transaksi Lengkap
+                  _buildSettingsRow(
+                    icon: Icons.history,
+                    iconBg: BrutalTokens.warn,
+                    title: 'Riwayat Transaksi Lengkap',
+                    subtitle: 'Buku besar histori seluruh pemasukan & pengeluaran',
+                    onTap: () => context.push('/history'),
+                  ),
                   const Divider(height: 1, thickness: BrutalTokens.borderThin, color: BrutalTokens.ink),
 
-                  // Row 4: Ekspor data
+                  // Row 5: Ekspor data
                   _buildSettingsRow(
                     icon: Icons.send_outlined,
                     iconBg: BrutalTokens.needs,
@@ -464,17 +473,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     subtitle: 'Kirim berkas cadangan database via email',
                     onTap: () async {
                       try {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Menyiapkan file cadangan...'),
-                            duration: Duration(seconds: 1),
-                          ),
+                        BrutalToast.showInfo(
+                          context,
+                          title: 'MENYIAPKAN BERKAS',
+                          message: 'Menyiapkan database terenkripsi untuk dibagikan...',
                         );
                         await ref.read(backupServiceProvider).shareBackupFile();
                       } catch (e) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Gagal mengekspor: $e')),
+                          BrutalToast.showError(
+                            context,
+                            title: 'GAGAL MENGEKSPOR',
+                            message: e.toString(),
+                            pushToSystem: true,
                           );
                         }
                       }
@@ -483,7 +494,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+
+            // Section: Aturan Runway & Panduan Penggunaan
+            const SectionTitle(title: 'Aturan runway & panduan'),
+
+            // Card 1: Aturan Utama Runway
+            _buildRunwayRulesCard(),
+            const SizedBox(height: 14),
+
+            // Card 2: Panduan Penggunaan 5 Langkah
+            _buildRunwayUsageGuideCard(),
+            const SizedBox(height: 28),
 
             // Version Block
             const Center(
@@ -607,4 +629,267 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
   }
+
+  Widget _buildRunwayRulesCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: BrutalTokens.paper,
+        border: Border.all(
+          color: BrutalTokens.ink,
+          width: BrutalTokens.borderBase,
+        ),
+        boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Stamp(text: 'FILOSOFI INTI', backgroundColor: BrutalTokens.warn),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                color: BrutalTokens.ink,
+                child: const Text(
+                  'STANDAR SURVIVAL',
+                  style: TextStyle(
+                    fontFamily: BrutalTokens.fontNumbers,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: BrutalTokens.paper,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'ATURAN UTAMA RUNWAY FINANCE',
+            style: TextStyle(
+              fontFamily: BrutalTokens.fontUi,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: BrutalTokens.ink,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Aplikasi ini tidak dirancang untuk sekadar mencatat angka, melainkan mengukur seberapa lama kamu bisa bertahan hidup jika hari ini semua pemasukanmu berhenti total.',
+            style: TextStyle(
+              fontFamily: BrutalTokens.fontUi,
+              fontSize: 12,
+              color: BrutalTokens.ink,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          _buildRuleItem(
+            icon: '🎯',
+            title: 'Target Runway Selalu > 30 Hari',
+            desc: 'Rumus: Kas Likuid ÷ Rata-rata Pengeluaran Harian. Kamu harus memiliki daya tahan minimal 30 hari ke depan.',
+          ),
+          _buildRuleItem(
+            icon: '🚦',
+            title: '3 Zona Warna Runway',
+            desc: '🟢 Hijau (>30 hari): Aman, tabung target impian.\n🟡 Kuning (15-30 hari): Waspada, batasi Keinginan.\n🔴 Merah (<15 hari): Bahaya Kritis, hanya belanja Kebutuhan!',
+          ),
+          _buildRuleItem(
+            icon: '🛡️',
+            title: 'Bantalan Bulan Depan (Buffer)',
+            desc: 'Gaji/penghasilan bulan ini disimpan untuk pengeluaran bulan depan. Mencegah siklus gali lubang tutup lubang!',
+          ),
+          _buildRuleItem(
+            icon: '💼',
+            title: 'Buku Besar Tanpa Saldo Buatan',
+            desc: 'Saldo diturunkan murni dari histori transaksi (Zero-Based), bukan angka yang diinput manual tanpa jejak.',
+          ),
+          _buildRuleItem(
+            icon: '🔥',
+            title: 'Puasa Jajan & Disiplin Finansial',
+            desc: 'Menahan godaan jajan impulsif dan mengonversi rupiah yang batal keluar menjadi penambah hari hidup di Runway.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRunwayUsageGuideCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: BrutalTokens.paper,
+        border: Border.all(
+          color: BrutalTokens.ink,
+          width: BrutalTokens.borderBase,
+        ),
+        boxShadow: BrutalTokens.hardShadow(offset: BrutalTokens.shadowMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Stamp(text: 'PANDUAN LENGKAP', backgroundColor: BrutalTokens.safe),
+              const Text(
+                '5 LANGKAH TAKTIS',
+                style: TextStyle(
+                  fontFamily: BrutalTokens.fontNumbers,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: BrutalTokens.muted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'CARA PENGGUNAAN RUNWAY FINANCE',
+            style: TextStyle(
+              fontFamily: BrutalTokens.fontUi,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+              color: BrutalTokens.ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildStepItem(
+            step: '01',
+            title: 'Catat Pemasukan',
+            desc: 'Setiap menerima uang, buka "Catat Gerak Uang" > tab "MASUK". Arahkan ke "Belum Dialokasikan" atau simpan ke "Bantalan Bulan Depan". Beri deskripsi opsional (misal: "Gaji Kantor").',
+          ),
+          _buildStepItem(
+            step: '02',
+            title: 'Atur Alokasi Pos Amplop',
+            desc: 'Buka menu "Atur Alokasi". Bagikan saldo kas ke pos Kebutuhan (Makan, Kost, Transport) dan Keinginan (Hiburan, Kopi). Setiap rupiah wajib memiliki tugas!',
+          ),
+          _buildStepItem(
+            step: '03',
+            title: 'Catat Pengeluaran Real-Time',
+            desc: 'Setiap belanja, catat lewat "Catat Gerak Uang" > "KELUAR". Pilih amplop pos dan ketikkan deskripsi opsional (misal: "membeli permen kapas").',
+          ),
+          _buildStepItem(
+            step: '04',
+            title: 'Jalankan Puasa Jajan',
+            desc: 'Saat tergoda jajan impulsif, tahan diri! Catat nominalnya di "Puasa Jajan" > "Catat Godaan Ditahan" untuk menaikkan rekor streak harianmu.',
+          ),
+          _buildStepItem(
+            step: '05',
+            title: 'Pantau Angka Runway di Beranda',
+            desc: 'Lihat kartu besar di Beranda. Pastikan angka Runway selalu berada di zona hijau (> 30 hari). Semakin panjang harinya, semakin bebas hidupmu!',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRuleItem({
+    required String icon,
+    required String title,
+    required String desc,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: BrutalTokens.fontUi,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: BrutalTokens.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    fontFamily: BrutalTokens.fontUi,
+                    fontSize: 11,
+                    color: BrutalTokens.muted,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem({
+    required String step,
+    required String title,
+    required String desc,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: BrutalTokens.warn,
+              border: Border.all(
+                color: BrutalTokens.ink,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              step,
+              style: const TextStyle(
+                fontFamily: BrutalTokens.fontNumbers,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: BrutalTokens.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: BrutalTokens.fontUi,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: BrutalTokens.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    fontFamily: BrutalTokens.fontUi,
+                    fontSize: 11,
+                    color: BrutalTokens.muted,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

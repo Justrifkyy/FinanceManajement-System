@@ -15,6 +15,7 @@ import 'package:runway_finance/shared/widgets/brutal/brutal_button.dart';
 import 'package:runway_finance/shared/widgets/brutal/brutal_progress_bar.dart';
 import 'package:runway_finance/shared/widgets/brutal/page_headers.dart';
 import 'package:runway_finance/shared/widgets/brutal/stamp.dart';
+import 'package:runway_finance/shared/widgets/brutal/brutal_toast.dart';
 
 class FutureScreen extends ConsumerWidget {
   const FutureScreen({super.key});
@@ -964,8 +965,11 @@ class FutureScreen extends ConsumerWidget {
                 await goalDao.archiveOrDeleteGoal(goal.id);
                 if (ctx.mounted) {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✓ Saldo ${MoneyFormatter.format(savedAmount)} ditarik ke kas dan target "${goal.name}" dihapus.')),
+                  BrutalToast.showSuccess(
+                    context,
+                    title: 'TARGET DIHAPUS & SALDO DITARIK',
+                    message: 'Saldo ${MoneyFormatter.format(savedAmount)} dikembalikan ke kas dan target "${goal.name}" dihapus.',
+                    pushToSystem: true,
                   );
                 }
               },
@@ -977,8 +981,11 @@ class FutureScreen extends ConsumerWidget {
               await goalDao.archiveOrDeleteGoal(goal.id);
               if (ctx.mounted) {
                 Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('✓ Target "${goal.name}" berhasil dihapus.')),
+                BrutalToast.showSuccess(
+                  context,
+                  title: 'TARGET BERHASIL DIHAPUS',
+                  message: 'Target "${goal.name}" telah dihapus dari daftar.',
+                  pushToSystem: true,
                 );
               }
             },
@@ -1002,8 +1009,11 @@ class FutureScreen extends ConsumerWidget {
 
     if (activeGoals.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Belum ada target impian. Buat target terlebih dahulu!')),
+        BrutalToast.showWarning(
+          context,
+          title: 'BELUM ADA TARGET',
+          message: 'Belum ada target impian aktif. Buat target terlebih dahulu!',
+          pushToSystem: true,
         );
       }
       return;
@@ -1165,8 +1175,11 @@ class FutureScreen extends ConsumerWidget {
 
                   if (ctx.mounted) {
                     Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✓ Berhasil menyetor Rp ${MoneyFormatter.formatWithoutSymbol(depositAmt)} ke "${currentGoal.name}"!')),
+                    BrutalToast.showSuccess(
+                      context,
+                      title: 'SETOR TARGET BERHASIL!',
+                      message: 'Rp ${MoneyFormatter.formatWithoutSymbol(depositAmt)} disetor ke target "${currentGoal.name}". Selangkah lebih dekat!',
+                      pushToSystem: true,
                     );
                   }
                 },
@@ -1272,8 +1285,11 @@ class FutureScreen extends ConsumerWidget {
                 );
                 if (ctx.mounted) {
                   Navigator.of(ctx).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✓ Berhasil menarik Rp ${MoneyFormatter.formatWithoutSymbol(withdrawAmt)} dari ${goal.name} ke kas!')),
+                  BrutalToast.showSuccess(
+                    context,
+                    title: 'TARIK TARGET BERHASIL',
+                    message: 'Rp ${MoneyFormatter.formatWithoutSymbol(withdrawAmt)} ditarik dari "${goal.name}" kembali ke kas bebas.',
+                    pushToSystem: true,
                   );
                 }
               }
